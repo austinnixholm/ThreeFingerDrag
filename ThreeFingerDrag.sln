@@ -5,6 +5,8 @@ VisualStudioVersion = 17.5.33414.496
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ThreeFingerDrag", "ThreeFingerDrag\ThreeFingerDrag.vcxproj", "{2F6AB4A4-893D-4FBD-AE32-6EDB569D435A}"
 EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "ThreeFingerDragSetupWizard", "ThreeFingerDragSetupWizard\ThreeFingerDragSetupWizard\ThreeFingerDragSetupWizard.vdproj", "{B42720B9-1549-42C8-A9EE-FC3E034DC8F9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,10 @@ Global
 		{2F6AB4A4-893D-4FBD-AE32-6EDB569D435A}.Release|x64.Build.0 = Release|x64
 		{2F6AB4A4-893D-4FBD-AE32-6EDB569D435A}.Release|x86.ActiveCfg = Release|Win32
 		{2F6AB4A4-893D-4FBD-AE32-6EDB569D435A}.Release|x86.Build.0 = Release|Win32
+		{B42720B9-1549-42C8-A9EE-FC3E034DC8F9}.Debug|x64.ActiveCfg = Debug
+		{B42720B9-1549-42C8-A9EE-FC3E034DC8F9}.Debug|x86.ActiveCfg = Debug
+		{B42720B9-1549-42C8-A9EE-FC3E034DC8F9}.Release|x64.ActiveCfg = Release
+		{B42720B9-1549-42C8-A9EE-FC3E034DC8F9}.Release|x86.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
