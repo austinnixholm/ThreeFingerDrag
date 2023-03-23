@@ -4,14 +4,15 @@
 #include "ThreeFingerDrag.h"
 
 // Constants
+
 constexpr auto kStartupProgramRegistryKey = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
 constexpr auto kProgramName = L"ThreeFingerDrag";
 constexpr auto kUpdateSettingsPeriodMs = std::chrono::milliseconds(3000);
 constexpr auto kTouchActivityPeriodMs = std::chrono::milliseconds(100);
 constexpr auto kInactivityThresholdMs = 50;
 constexpr auto kNumSkippedFrames = 8;
-constexpr auto kMaxTouchMovementSpeed = 50;
-constexpr auto kTouchMovementAcceleration = 0.0333;
+constexpr auto kMaxTouchMovementSpeed = 40;
+constexpr auto kTouchMovementAcceleration = 0.03;
 constexpr auto kTouchPow = 1.001;
 constexpr auto kMaxLoadString = 100;
 constexpr auto kInitValue = 65535;
@@ -26,46 +27,41 @@ constexpr auto kQuitMenuItemId = 1;
 constexpr auto kCreateTaskMenuItemId = 2;
 constexpr auto kRemoveTaskMenuItemId = 3;
 
-// Global Variables:
+// Global Variables
+
 HINSTANCE hInst; // current instance
+HWND hWnd; // Tool window handle
 WCHAR szTitle[kMaxLoadString]; // The title bar text
-WCHAR szWindowClass[kMaxLoadString]; // the main window class name
+WCHAR szWindowClass[kMaxLoadString]; // The main window class name
 NOTIFYICONDATA nid;
 std::mutex mutex;
 std::thread update_settings_thread;
 std::thread touch_activity_thread;
+std::chrono::time_point<std::chrono::steady_clock> last_detection; // Last time gesture was detected
+std::vector<TouchPadContact> last_contacts; // Last detected touch pad contact points
+DOUBLE precision_touch_cursor_speed; // Precision touch pad cursor speed
+BOOL is_dragging = false; // True if a touch drag action has not yet been cancelled
+BOOL run_loops = true;
+INT num_frames_skipped = 0;
 
-// Forward declarations of functions included in this code module:
-ATOM MyRegisterClass(HINSTANCE hInstance);
+// Forward declarations
+
+ATOM RegisterWindowClass(HINSTANCE hInstance);
 BOOL InitInstance(HINSTANCE, int);
 LRESULT ParseRawInput(LPARAM lParam);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 DOUBLE ClampDouble(double in, double min, double max);
-TouchPadInputData GetTouchData(HRAWINPUT hRawInput);
+TouchPadInputData GetTouchData(HRAWINPUT hRawInputHandle);
+bool StartupRegistryKeyExists();
+void RemoveStartupRegistryKey();
+void AddStartupRegistryKey();
 void ReadPrecisionTouchPadRegistry();
-void SimulateClick(DWORD flags);
-void MoveMousePointer(const TouchPadInputData& data,
-                      const std::chrono::time_point<std::chrono::steady_clock>& now);
-void StartDragging();
-void StopDragging();
 void CreateUpdateThread();
 void CreateActivityThread();
-void RemoveStartupRegistryKey();
-void AddStartupRegistryKey(bool show_message = false);
-bool StartupRegistryKeyExists();
-
-// Last time since a valid three finger drag detection was made
-std::chrono::time_point<std::chrono::steady_clock> last_detection;
-
-// Last detected touch pad contact points
-std::vector<TouchPadContact> last_contacts;
-
-// Precision touch pad cursor speed
-DOUBLE precision_touch_cursor_speed;
-
-BOOL is_dragging = false;
-INT num_frames_skipped = 0;
+void SimulateClick(DWORD flags);
+void MoveMousePointer(const TouchPadInputData& data, const std::chrono::time_point<std::chrono::steady_clock>& now);
+void StartDragging();
+void StopDragging();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                       _In_opt_ HINSTANCE hPrevInstance,
@@ -75,6 +71,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
+	const HANDLE hMutex = CreateMutex(nullptr, TRUE, kProgramName);
+
+	if (GetLastError() == ERROR_ALREADY_EXISTS)
+	{
+		MessageBox(nullptr, TEXT("Another instance of Three Finger Drag is already running."), TEXT("Error"),
+		           MB_OK | MB_ICONERROR);
+		// Another instance of the program is already running
+		CloseHandle(hMutex);
+		return FALSE;
+	}
 
 	// Read any user values from Windows precision touch pad settings from registry
 	ReadPrecisionTouchPadRegistry();
@@ -82,72 +88,70 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	// Initialize global strings
 	LoadStringW(hInstance, IDS_APP_TITLE, szTitle, kMaxLoadString);
 	LoadStringW(hInstance, IDC_THREEFINGERDRAG, szWindowClass, kMaxLoadString);
-	MyRegisterClass(hInstance);
+	RegisterWindowClass(hInstance);
 
 	// Perform application initialization:
 	if (!InitInstance(hInstance, nCmdShow))
 		return FALSE;
 
+	// Threads
 	CreateUpdateThread();
 	CreateActivityThread();
 
-	HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_THREEFINGERDRAG));
 	MSG msg;
 
-	// Main message loop:
+	// Enter message loop and process incoming messages until WM_QUIT is received
 	while (GetMessage(&msg, nullptr, 0, 0))
 	{
-		if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
 	}
 
 	// Delete tray icon
 	Shell_NotifyIcon(NIM_DELETE, &nid);
 
-	// Join update threads
+	// Join threads
+	run_loops = false;
 	update_settings_thread.join();
 	touch_activity_thread.join();
+
 	return static_cast<int>(msg.wParam);
 }
 
-
-ATOM MyRegisterClass(HINSTANCE hInstance)
+ATOM RegisterWindowClass(HINSTANCE hInstance)
 {
 	WNDCLASSEXW wcex;
 
 	wcex.cbSize = sizeof(WNDCLASSEX);
 
-	wcex.style = CS_HREDRAW | CS_VREDRAW;
+	wcex.style = 0;
 	wcex.lpfnWndProc = WndProc;
 	wcex.cbClsExtra = 0;
 	wcex.cbWndExtra = 0;
 	wcex.hInstance = hInstance;
 	wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_THREEFINGERDRAG));
 	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
-	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-	wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_THREEFINGERDRAG);
+	wcex.hbrBackground = nullptr;
+	wcex.lpszMenuName = nullptr;
 	wcex.lpszClassName = szWindowClass;
-	wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
+	wcex.hIconSm = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_THREEFINGERDRAG));
 
 	return RegisterClassExW(&wcex);
 }
 
-
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-	hInst = hInstance; // Store instance handle in our global variable
+	hInst = hInstance;
 
-	const HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-	                                CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+	hWnd = CreateWindowEx(WS_EX_TOOLWINDOW, szWindowClass, szTitle, 0,
+	                      0, 0, 0, 0, nullptr, nullptr, hInstance, nullptr);
 	if (!hWnd)
 		return FALSE;
 
+	// Register raw input touch device
+
 	RAWINPUTDEVICE rid;
 
-	// Touch device
 	rid.usUsagePage = HID_USAGE_PAGE_DIGITIZER;
 	rid.usUsage = HID_USAGE_DIGITIZER_TOUCH_PAD;
 	rid.dwFlags = RIDEV_INPUTSINK; // Receive input even when the application is in the background
@@ -155,11 +159,11 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	if (!RegisterRawInputDevices(&rid, 1, sizeof(RAWINPUTDEVICE)))
 	{
-		// Error handling code
-		MessageBox(NULL, TEXT("Raw device couldn't be registered"), TEXT("Info"), MB_OK);
+		MessageBox(nullptr, TEXT("Raw device couldn't be registered"), TEXT("Info"), MB_OK);
 		return FALSE;
 	}
 
+	// Initialize notify icon data
 	nid.cbSize = sizeof(NOTIFYICONDATA);
 	nid.hWnd = hWnd;
 	nid.uID = 1;
@@ -196,14 +200,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				POINT pt;
 				GetCursorPos(&pt);
 				const HMENU hMenu = CreatePopupMenu();
+
 				if (StartupRegistryKeyExists())
 					AppendMenu(hMenu, MF_STRING, kRemoveTaskMenuItemId, TEXT("Remove startup task"));
 				else
 					AppendMenu(hMenu, MF_STRING, kCreateTaskMenuItemId, TEXT("Run on startup"));
+
 				AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
-
 				AppendMenu(hMenu, MF_STRING, kQuitMenuItemId, TEXT("Quit"));
-
 
 				SetForegroundWindow(hWnd);
 				TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hWnd, nullptr);
@@ -232,31 +236,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			switch (wm_id)
 			{
 			case kQuitMenuItemId:
-				PostQuitMessage(0);
+				DestroyWindow(hWnd);
 				break;
 			case kCreateTaskMenuItemId:
-				AddStartupRegistryKey(true);
+				AddStartupRegistryKey();
 				break;
 			case kRemoveTaskMenuItemId:
 				RemoveStartupRegistryKey();
 				break;
-
-			case IDM_ABOUT:
-				DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-				break;
-			case IDM_EXIT:
-				DestroyWindow(hWnd);
-				break;
 			default:
 				return DefWindowProc(hWnd, message, wParam, lParam);
 			}
-		}
-		break;
-	case WM_PAINT:
-		{
-			PAINTSTRUCT ps;
-			HDC hdc = BeginPaint(hWnd, &ps);
-			EndPaint(hWnd, &ps);
 		}
 		break;
 	case WM_DESTROY:
@@ -269,31 +259,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
-// Message handler for about box.
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	UNREFERENCED_PARAMETER(lParam);
-	switch (message)
-	{
-	case WM_INITDIALOG:
-		return (INT_PTR)TRUE;
-
-	case WM_COMMAND:
-		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-		{
-			EndDialog(hDlg, LOWORD(wParam));
-			return (INT_PTR)TRUE;
-		}
-		break;
-	}
-	return (INT_PTR)FALSE;
-}
-
 
 LRESULT ParseRawInput(LPARAM lParam)
 {
-	const HRAWINPUT hRawInput = (HRAWINPUT)lParam;
-	TouchPadInputData data = GetTouchData(hRawInput);
+	const auto hRawInputHandle = (HRAWINPUT)lParam;
+	TouchPadInputData data = GetTouchData(hRawInputHandle);
 
 	if (data.valid_contact && data.contacts.size() > 2)
 	{
@@ -324,7 +294,7 @@ void CreateUpdateThread()
 {
 	update_settings_thread = std::thread([&]
 	{
-		while (true)
+		while (run_loops)
 		{
 			std::this_thread::sleep_for(kUpdateSettingsPeriodMs);
 			ReadPrecisionTouchPadRegistry();
@@ -332,18 +302,23 @@ void CreateUpdateThread()
 	});
 }
 
+/**
+ * \brief Starts a thread that periodically checks 
+ */
 void CreateActivityThread()
 {
 	touch_activity_thread = std::thread([&]
 	{
-		while (true)
+		while (run_loops)
 		{
 			std::this_thread::sleep_for(kTouchActivityPeriodMs);
 			if (!is_dragging)
 				continue;
+
 			const std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::high_resolution_clock::now();
 			const std::chrono::duration<float> duration = now - last_detection;
 			const float ms_since_last = duration.count() * 1000.0f;
+
 			// Sends mouse up event when inactivity occurs
 			if (ms_since_last > kInactivityThresholdMs)
 				StopDragging();
@@ -397,53 +372,68 @@ void MoveMousePointer(const TouchPadInputData& data,
 	const float ms_since_last = duration.count() * 1000.0f;
 
 	// Initialize the change in x and y coordinates of the mouse pointer
-	int delta_x = 0;
-	int delta_y = 0;
+	int total_delta_x = 0;
+	int total_delta_y = 0;
 
 	// Ignore initial movement frames. This prevents unwanted movement in the beginning of the gesture.
 	if (++num_frames_skipped > kNumSkippedFrames && !last_contacts.empty() && ms_since_last < kInactivityThresholdMs)
 	{
-		// Use the average position of the now contacts and the last known contacts
-		const int current_x = (contacts[0].x + contacts[1].x + contacts[2].x) / 3;
-		const int current_y = (contacts[0].y + contacts[1].y + contacts[2].y) / 3;
-		const int last_x = (last_contacts[0].x + last_contacts[1].x + last_contacts[2].x) / 3;
-		const int last_y = (last_contacts[0].y + last_contacts[1].y + last_contacts[2].y) / 3;
+		// Calculate the movement delta for each finger and add them up
+		int valid_touch_movements = 0;
+		for (int i = 0; i < 3; i++)
+		{
+			const auto& contact = contacts[i];
 
-		// Apply raw movement 
-		delta_x = (current_x - last_x) * precision_touch_cursor_speed;
-		delta_y = (current_y - last_y) * precision_touch_cursor_speed;
+			// Calculate the movement delta for the current finger
+			const int delta_x = (contact.x - last_contacts[i].x) * precision_touch_cursor_speed;
+			const int delta_y = (contact.y - last_contacts[i].y) * precision_touch_cursor_speed;
+
+			if (std::abs(delta_x) > 0 || std::abs(delta_y) > 0)
+				valid_touch_movements++;
+
+			// Add the movement delta for the current finger to the total
+			total_delta_x += delta_x;
+			total_delta_y += delta_y;
+		}
+
+		if (valid_touch_movements > 1)
+		{
+			total_delta_x /= valid_touch_movements;
+			total_delta_y /= valid_touch_movements;
+		}
 
 		// Apply movement acceleration
-		const double speed = ClampDouble(std::sqrt(delta_x * delta_x + delta_y * delta_y), 0, kMaxTouchMovementSpeed);
+		const double speed = ClampDouble(std::sqrt(total_delta_x * total_delta_x + total_delta_y * total_delta_y), 1,
+		                                 kMaxTouchMovementSpeed);
 		const double factor = pow(speed, kTouchPow);
 
-		delta_x = static_cast<int>(delta_x * factor * kTouchMovementAcceleration);
-		delta_y = static_cast<int>(delta_y * factor * kTouchMovementAcceleration);
+		total_delta_x = static_cast<int>(total_delta_x * factor * kTouchMovementAcceleration);
+		total_delta_y = static_cast<int>(total_delta_y * factor * kTouchMovementAcceleration);
 	}
 
 	// Move the mouse pointer based on the calculated vector
-	MoveCursor(delta_x, delta_y);
+	MoveCursor(total_delta_x, total_delta_y);
 	if (!is_dragging)
 		StartDragging();
 }
 
-TouchPadInputData GetTouchData(HRAWINPUT hRawInput)
+TouchPadInputData GetTouchData(HRAWINPUT hRawInputHandle)
 {
 	TouchPadInputData data{};
 	std::vector<TouchPadContact> contacts;
 	UINT size = sizeof(RAWINPUT);
-	const HANDLE h_heap = GetProcessHeap();
-	GetRawInputData(hRawInput, RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
+	const HANDLE hHeap = GetProcessHeap();
+	GetRawInputData(hRawInputHandle, RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
 	if (size == 0)
 		return data;
 
-	auto* raw_input = static_cast<RAWINPUT*>(HeapAlloc(h_heap, 0, size));
+	auto* raw_input = static_cast<RAWINPUT*>(HeapAlloc(hHeap, 0, size));
 	if (raw_input == nullptr)
 		return data;
 
-	if (GetRawInputData(hRawInput, RID_INPUT, raw_input, &size, sizeof(RAWINPUTHEADER)) == -1)
+	if (GetRawInputData(hRawInputHandle, RID_INPUT, raw_input, &size, sizeof(RAWINPUTHEADER)) == -1)
 	{
-		HeapFree(h_heap, 0, raw_input);
+		HeapFree(hHeap, 0, raw_input);
 		return data;
 	}
 
@@ -451,27 +441,27 @@ TouchPadInputData GetTouchData(HRAWINPUT hRawInput)
 	GetRawInputDeviceInfo(raw_input->header.hDevice, RIDI_PREPARSEDDATA, nullptr, &buffer_size);
 	if (buffer_size == 0)
 	{
-		HeapFree(h_heap, 0, raw_input);
+		HeapFree(hHeap, 0, raw_input);
 		return data;
 	}
 
-	const auto pre_parsed_data = static_cast<PHIDP_PREPARSED_DATA>(HeapAlloc(h_heap, 0, buffer_size));
+	const auto pre_parsed_data = static_cast<PHIDP_PREPARSED_DATA>(HeapAlloc(hHeap, 0, buffer_size));
 	GetRawInputDeviceInfo(raw_input->header.hDevice, RIDI_PREPARSEDDATA, pre_parsed_data, &buffer_size);
 	HIDP_CAPS caps;
 	if (HidP_GetCaps(pre_parsed_data, &caps) != HIDP_STATUS_SUCCESS)
 	{
-		HeapFree(h_heap, 0, raw_input);
-		HeapFree(h_heap, 0, pre_parsed_data);
+		HeapFree(hHeap, 0, raw_input);
+		HeapFree(hHeap, 0, pre_parsed_data);
 		return data;
 	}
 
 	USHORT length = caps.NumberInputValueCaps;
-	const auto value_caps = static_cast<PHIDP_VALUE_CAPS>(HeapAlloc(h_heap, 0, sizeof(HIDP_VALUE_CAPS) * length));
+	const auto value_caps = static_cast<PHIDP_VALUE_CAPS>(HeapAlloc(hHeap, 0, sizeof(HIDP_VALUE_CAPS) * length));
 	if (HidP_GetValueCaps(HidP_Input, value_caps, &length, pre_parsed_data) != HIDP_STATUS_SUCCESS)
 	{
-		HeapFree(h_heap, 0, raw_input);
-		HeapFree(h_heap, 0, pre_parsed_data);
-		HeapFree(h_heap, 0, value_caps);
+		HeapFree(hHeap, 0, raw_input);
+		HeapFree(hHeap, 0, pre_parsed_data);
+		HeapFree(hHeap, 0, value_caps);
 		return data;
 	}
 
@@ -526,9 +516,9 @@ TouchPadInputData GetTouchData(HRAWINPUT hRawInput)
 			contact = {kInitValue, kInitValue, kInitValue};
 		}
 	}
-	HeapFree(h_heap, 0, raw_input);
-	HeapFree(h_heap, 0, pre_parsed_data);
-	HeapFree(h_heap, 0, value_caps);
+	HeapFree(hHeap, 0, raw_input);
+	HeapFree(hHeap, 0, pre_parsed_data);
+	HeapFree(hHeap, 0, value_caps);
 
 	data.contacts = contacts;
 	data.scan_time = scan_time;
@@ -592,17 +582,16 @@ bool StartupRegistryKeyExists()
 	if (result != ERROR_SUCCESS)
 		return false;
 	DWORD valueSize = 0;
-	result = RegQueryValueEx(hKey, kProgramName, 0, NULL, NULL, &valueSize);
+	result = RegQueryValueEx(hKey, kProgramName, 0, nullptr, nullptr, &valueSize);
 	RegCloseKey(hKey);
 	return result == ERROR_SUCCESS;
 }
 
-
-void AddStartupRegistryKey(bool show_message)
+void AddStartupRegistryKey()
 {
 	HKEY hKey;
 	WCHAR app_path[MAX_PATH];
-	const DWORD path_len = GetModuleFileName(NULL, app_path, MAX_PATH);
+	const DWORD path_len = GetModuleFileName(nullptr, app_path, MAX_PATH);
 	if (path_len == 0 || path_len == MAX_PATH)
 	{
 		// Error: could not retrieve the application path
@@ -613,8 +602,8 @@ void AddStartupRegistryKey(bool show_message)
 		return;
 	result = RegSetValueEx(hKey, kProgramName, 0, REG_SZ, (BYTE*)app_path,
 	                       (DWORD)(wcslen(app_path) + 1) * sizeof(wchar_t));
-	if (show_message && result == ERROR_SUCCESS)
-		MessageBox(NULL, TEXT("Startup task has beeen created successfully."), L"Three Finger Drag", MB_OK);
+	if (result == ERROR_SUCCESS)
+		MessageBox(nullptr, TEXT("Startup task has beeen created successfully."), L"Three Finger Drag", MB_OK);
 	RegCloseKey(hKey);
 }
 
@@ -626,6 +615,6 @@ void RemoveStartupRegistryKey()
 		return;
 	result = RegDeleteValue(hKey, kProgramName);
 	if (result == ERROR_SUCCESS)
-		MessageBox(NULL, TEXT("Startup task has beeen removed successfully."), L"Three Finger Drag", MB_OK);
+		MessageBox(nullptr, TEXT("Startup task has beeen removed successfully."), L"Three Finger Drag", MB_OK);
 	RegCloseKey(hKey);
 }

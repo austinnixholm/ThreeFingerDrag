@@ -9,6 +9,6 @@
 #include <malloc.h>
 #include <memory.h>
 #include <tchar.h>
+
 #include <Hidsdi.h>
 #pragma comment(lib, "hid.lib")
-
