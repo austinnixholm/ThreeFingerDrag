@@ -7,13 +7,14 @@ ThreeFingerDrag is a free and open-source tool that emulates the functionality o
 
 ## Usage
 
-The application runs in the background of the system and requires minimal setup. After installation, you can run the program and forget about it.
+The application runs in the background of the system, and can be closed from its system tray menu.
 
-To run ThreeFingerDrag on startup of Windows, left or right-click on the system tray icon, and select the "Run on startup" option.
+To run on startup of Windows, open the tray menu and select the "Run on startup" option.  
 
 ## Known Issues
 
 - Error logging is not currently available in version 1.0.0, but will be included in the next release.
+- Application icon will be included in the next release
 
 ## Contributing
 
