@@ -18,4 +18,4 @@ To run on startup of Windows, open the tray menu and select the "Run on startup"
 
 ## Contributing
 
-If you would like to contribute to the development of ThreeFingerDrag, feel free to create a pull request or submit an issue on the repository's [issues page](https://github.com/username/repo/issues).
+If you would like to contribute to the development of ThreeFingerDrag, feel free to create a pull request or submit an issue on the repository's [issues page](https://github.com/austinnixholm/ThreeFingerDrag/issues).
