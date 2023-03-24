@@ -29,7 +29,7 @@ struct TouchPadContact
 struct TouchPadInputData
 {
 	std::vector<TouchPadContact> contacts;
-	int scan_time;
-	int contact_count;
-	bool valid_contact;
+	int scan_time{};
+	int contact_count{};
+	bool can_perform_gesture{};
 };

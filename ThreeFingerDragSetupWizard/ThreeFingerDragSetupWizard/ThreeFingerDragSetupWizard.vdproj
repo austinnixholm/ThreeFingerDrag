@@ -319,7 +319,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:ThreeFingerDrag"
         "ProductCode" = "8:{97DC200D-BC22-4FCA-A35A-DB0D5FE84B0A}"
-        "PackageCode" = "8:{FF3BC387-C1D3-4C86-BAB1-E7DE709C73BF}"
+        "PackageCode" = "8:{1A05E3EA-7AB2-48FF-BD39-F5FAF76FC42F}"
         "UpgradeCode" = "8:{1E644716-83DC-46B0-A6E8-EF55CC2C8191}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
@@ -647,7 +647,7 @@
                             "ContextData" = "8:1;True=1;False=0"
                             "Attributes" = "3:0"
                             "Setting" = "3:0"
-                            "Value" = "3:1"
+                            "Value" = "3:0"
                             "DefaultValue" = "3:1"
                             "UsePlugInResources" = "11:TRUE"
                             }

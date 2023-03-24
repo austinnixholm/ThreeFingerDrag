@@ -8,12 +8,12 @@
 constexpr auto kStartupProgramRegistryKey = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
 constexpr auto kProgramName = L"ThreeFingerDrag";
 constexpr auto kUpdateSettingsPeriodMs = std::chrono::milliseconds(3000);
-constexpr auto kTouchActivityPeriodMs = std::chrono::milliseconds(100);
+constexpr auto kTouchActivityPeriodMs = std::chrono::milliseconds(75);
 constexpr auto kInactivityThresholdMs = 50;
-constexpr auto kNumSkippedFrames = 8;
+constexpr auto kNumSkippedFrames = 10;
 constexpr auto kMaxTouchMovementSpeed = 40;
-constexpr auto kTouchMovementAcceleration = 0.03;
-constexpr auto kTouchPow = 1.001;
+constexpr auto kTouchMovementAcceleration = 1;
+constexpr auto kTouchLogFactor = 32.0;
 constexpr auto kMaxLoadString = 100;
 constexpr auto kInitValue = 65535;
 constexpr auto kDigitizerValueUsagePage = 0x01;
@@ -29,20 +29,20 @@ constexpr auto kRemoveTaskMenuItemId = 3;
 
 // Global Variables
 
-HINSTANCE hInst; // current instance
+HINSTANCE hInst; // Current instance
 HWND hWnd; // Tool window handle
 WCHAR szTitle[kMaxLoadString]; // The title bar text
 WCHAR szWindowClass[kMaxLoadString]; // The main window class name
-NOTIFYICONDATA nid;
+NOTIFYICONDATA nid; // Tray icon
+DOUBLE precision_touch_cursor_speed; // Precision touch pad cursor speed
+BOOL is_dragging = false; // True if a touch drag action has not yet been cancelled
+BOOL run_loops = true;
+INT gesture_frames_skipped = 0;
 std::mutex mutex;
 std::thread update_settings_thread;
 std::thread touch_activity_thread;
 std::chrono::time_point<std::chrono::steady_clock> last_detection; // Last time gesture was detected
-std::vector<TouchPadContact> last_contacts; // Last detected touch pad contact points
-DOUBLE precision_touch_cursor_speed; // Precision touch pad cursor speed
-BOOL is_dragging = false; // True if a touch drag action has not yet been cancelled
-BOOL run_loops = true;
-INT num_frames_skipped = 0;
+TouchPadInputData previous_data; // Last detected touch pad data
 
 // Forward declarations
 
@@ -53,6 +53,7 @@ LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 DOUBLE ClampDouble(double in, double min, double max);
 TouchPadInputData GetTouchData(HRAWINPUT hRawInputHandle);
 bool StartupRegistryKeyExists();
+void CreateTrayMenu(HWND hWnd);
 void RemoveStartupRegistryKey();
 void AddStartupRegistryKey();
 void ReadPrecisionTouchPadRegistry();
@@ -71,13 +72,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
-	const HANDLE hMutex = CreateMutex(nullptr, TRUE, kProgramName);
 
+	// Single application instance check
+	const HANDLE hMutex = CreateMutex(nullptr, TRUE, kProgramName);
 	if (GetLastError() == ERROR_ALREADY_EXISTS)
 	{
 		MessageBox(nullptr, TEXT("Another instance of Three Finger Drag is already running."), TEXT("Error"),
 		           MB_OK | MB_ICONERROR);
-		// Another instance of the program is already running
 		CloseHandle(hMutex);
 		return FALSE;
 	}
@@ -139,7 +140,7 @@ ATOM RegisterWindowClass(HINSTANCE hInstance)
 	return RegisterClassExW(&wcex);
 }
 
-BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
+BOOL InitInstance(const HINSTANCE hInstance, int nCmdShow)
 {
 	hInst = hInstance;
 
@@ -159,7 +160,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	if (!RegisterRawInputDevices(&rid, 1, sizeof(RAWINPUTDEVICE)))
 	{
-		MessageBox(nullptr, TEXT("Raw device couldn't be registered"), TEXT("Info"), MB_OK);
+		MessageBox(nullptr, TEXT("Raw touch device couldn't be registered. Program will now exit."), TEXT("Three Finger Drag"), MB_OK | MB_ICONERROR);
 		return FALSE;
 	}
 
@@ -196,24 +197,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 		case WM_LBUTTONDOWN:
 		case WM_RBUTTONDOWN:
-			{
-				POINT pt;
-				GetCursorPos(&pt);
-				const HMENU hMenu = CreatePopupMenu();
-
-				if (StartupRegistryKeyExists())
-					AppendMenu(hMenu, MF_STRING, kRemoveTaskMenuItemId, TEXT("Remove startup task"));
-				else
-					AppendMenu(hMenu, MF_STRING, kCreateTaskMenuItemId, TEXT("Run on startup"));
-
-				AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
-				AppendMenu(hMenu, MF_STRING, kQuitMenuItemId, TEXT("Quit"));
-
-				SetForegroundWindow(hWnd);
-				TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hWnd, nullptr);
-				PostMessage(hWnd, WM_NULL, 0, 0);
-				DestroyMenu(hMenu);
-			}
+			CreateTrayMenu(hWnd);
 			break;
 
 		case WM_CLOSE:
@@ -232,7 +216,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_COMMAND:
 		{
 			const int wm_id = LOWORD(wParam);
-			// Parse the menu selections:
+
+			// Parse the menu selections
 			switch (wm_id)
 			{
 			case kQuitMenuItemId:
@@ -260,30 +245,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 
-LRESULT ParseRawInput(LPARAM lParam)
+LRESULT ParseRawInput(const LPARAM lParam)
 {
 	const auto hRawInputHandle = (HRAWINPUT)lParam;
 	TouchPadInputData data = GetTouchData(hRawInputHandle);
 
-	if (data.valid_contact && data.contacts.size() > 2)
+	// Three finger drag
+	if (data.contact_count == 3)
 	{
 		const std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::high_resolution_clock::now();
 
 		MoveMousePointer(data, now);
 
 		// Update old information to current
-		last_contacts = data.contacts;
+		previous_data = data;
 		last_detection = now;
 	}
 
-	if (data.contact_count < 3)
+	// Reset if an ongoing drag gesture was interrupted (ie: finger lifted)
+	const auto gesture_interrupted = previous_data.can_perform_gesture && is_dragging && data.contact_count < 3;
+	if (gesture_interrupted)
 	{
-		if (is_dragging)
-			StopDragging();
+		StopDragging();
 		data.contacts.clear();
-		num_frames_skipped = 0;
 	}
-
 	return 0;
 }
 
@@ -326,6 +311,10 @@ void CreateActivityThread()
 	});
 }
 
+/**
+ * \brief A helper function to simulate a mouse click event. 
+ * \param flags The mouse input flags
+ */
 void SimulateClick(const DWORD flags)
 {
 	std::lock_guard<std::mutex> lk(mutex);
@@ -345,7 +334,7 @@ void SimulateClick(const DWORD flags)
  * \param delta_x The change in the x-coordinate of the mouse pointer.
  * \param delta_y The change in the y-coordinate of the mouse pointer.
  */
-void MoveCursor(int delta_x, int delta_y)
+void MoveCursor(const int delta_x, const int delta_y)
 {
 	INPUT input;
 	input.type = INPUT_MOUSE;
@@ -366,28 +355,39 @@ void MoveCursor(int delta_x, int delta_y)
 void MoveMousePointer(const TouchPadInputData& data,
                       const std::chrono::time_point<std::chrono::steady_clock>& now)
 {
-	const std::vector<TouchPadContact> contacts = data.contacts;
+	// Ignore initial frames of movement. This prevents unwanted/overlapped behavior in the beginning of the gesture.
+	if (++gesture_frames_skipped <= kNumSkippedFrames)
+		return;
+
 	// Calculate the time elapsed since the last touchpad contact
 	const std::chrono::duration<float> duration = now - last_detection;
 	const float ms_since_last = duration.count() * 1000.0f;
 
-	// Initialize the change in x and y coordinates of the mouse pointer
-	int total_delta_x = 0;
-	int total_delta_y = 0;
+	// Make sure this update is current
+	if (ms_since_last >= kInactivityThresholdMs)
+		return;
 
-	// Ignore initial movement frames. This prevents unwanted movement in the beginning of the gesture.
-	if (++num_frames_skipped > kNumSkippedFrames && !last_contacts.empty() && ms_since_last < kInactivityThresholdMs)
+	// Initialize the change in x and y coordinates of the mouse pointer
+	double total_delta_x = 0;
+	double total_delta_y = 0;
+
+	if (!previous_data.contacts.empty())
 	{
-		// Calculate the movement delta for each finger and add them up
+		// Calculate the movement delta for each finger and add them up, keep track of how many fingers have moved
 		int valid_touch_movements = 0;
 		for (int i = 0; i < 3; i++)
 		{
-			const auto& contact = contacts[i];
+			const auto& contact = data.contacts[i];
+			const auto& previous_contact = previous_data.contacts[i];
+
+			if (contact.contact_id != previous_contact.contact_id)
+				continue;
 
 			// Calculate the movement delta for the current finger
-			const int delta_x = (contact.x - last_contacts[i].x) * precision_touch_cursor_speed;
-			const int delta_y = (contact.y - last_contacts[i].y) * precision_touch_cursor_speed;
+			const double delta_x = (contact.x - previous_contact.x) * precision_touch_cursor_speed;
+			const double delta_y = (contact.y - previous_contact.y) * precision_touch_cursor_speed;
 
+			// Check if any movement was present since the last received raw input
 			if (std::abs(delta_x) > 0 || std::abs(delta_y) > 0)
 				valid_touch_movements++;
 
@@ -396,57 +396,82 @@ void MoveMousePointer(const TouchPadInputData& data,
 			total_delta_y += delta_y;
 		}
 
+		// If there is more than one finger movement, use the average delta
 		if (valid_touch_movements > 1)
 		{
-			total_delta_x /= valid_touch_movements;
-			total_delta_y /= valid_touch_movements;
+			total_delta_x /= static_cast<double>(valid_touch_movements);
+			total_delta_y /= static_cast<double>(valid_touch_movements);
 		}
 
-		// Apply movement acceleration
-		const double speed = ClampDouble(std::sqrt(total_delta_x * total_delta_x + total_delta_y * total_delta_y), 1,
-		                                 kMaxTouchMovementSpeed);
-		const double factor = pow(speed, kTouchPow);
+		// Apply movement acceleration using a logarithmic function
+		const double movement_mag = std::sqrt(total_delta_x * total_delta_x + total_delta_y * total_delta_y);
+		const double speed = ClampDouble(movement_mag, 1, kMaxTouchMovementSpeed);
+		const double factor = std::log(speed) / std::log(kTouchLogFactor);
 
 		total_delta_x = static_cast<int>(total_delta_x * factor * kTouchMovementAcceleration);
 		total_delta_y = static_cast<int>(total_delta_y * factor * kTouchMovementAcceleration);
 	}
 
 	// Move the mouse pointer based on the calculated vector
-	MoveCursor(total_delta_x, total_delta_y);
+	MoveCursor(static_cast<int>(total_delta_x), static_cast<int>(total_delta_y));
+
 	if (!is_dragging)
 		StartDragging();
 }
 
-TouchPadInputData GetTouchData(HRAWINPUT hRawInputHandle)
+/**
+ * \brief Retrieves touchpad input data from a raw input handle.
+ * \param hRawInputHandle Handle to the raw input. 
+ * \return A struct containing the touchpad input data.
+ */
+TouchPadInputData GetTouchData(const HRAWINPUT hRawInputHandle)
 {
+	// Initialize touchpad input data struct with default values.
 	TouchPadInputData data{};
-	std::vector<TouchPadContact> contacts;
+
+	// Initialize variable to hold size of raw input.
 	UINT size = sizeof(RAWINPUT);
+
+	// Get process heap handle.
 	const HANDLE hHeap = GetProcessHeap();
+
+	// Get size of raw input data.
 	GetRawInputData(hRawInputHandle, RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
+
+	// If size is 0, return default touchpad input data struct.
 	if (size == 0)
 		return data;
 
+	// Allocate memory for raw input data.
 	auto* raw_input = static_cast<RAWINPUT*>(HeapAlloc(hHeap, 0, size));
+
 	if (raw_input == nullptr)
 		return data;
 
+	// Get raw input data.
 	if (GetRawInputData(hRawInputHandle, RID_INPUT, raw_input, &size, sizeof(RAWINPUTHEADER)) == -1)
 	{
 		HeapFree(hHeap, 0, raw_input);
 		return data;
 	}
 
+	// Get size of pre-parsed data buffer.
 	UINT buffer_size;
 	GetRawInputDeviceInfo(raw_input->header.hDevice, RIDI_PREPARSEDDATA, nullptr, &buffer_size);
+
 	if (buffer_size == 0)
 	{
 		HeapFree(hHeap, 0, raw_input);
 		return data;
 	}
 
+	// Allocate memory for pre-parsed data buffer.
 	const auto pre_parsed_data = static_cast<PHIDP_PREPARSED_DATA>(HeapAlloc(hHeap, 0, buffer_size));
+
+	// Get pre-parsed data buffer.
 	GetRawInputDeviceInfo(raw_input->header.hDevice, RIDI_PREPARSEDDATA, pre_parsed_data, &buffer_size);
+
+	// Get capabilities of HID device.
 	HIDP_CAPS caps;
 	if (HidP_GetCaps(pre_parsed_data, &caps) != HIDP_STATUS_SUCCESS)
 	{
@@ -455,8 +480,13 @@ TouchPadInputData GetTouchData(HRAWINPUT hRawInputHandle)
 		return data;
 	}
 
+	// Get number of input value caps.
 	USHORT length = caps.NumberInputValueCaps;
+
+	// Allocate memory for input value caps.
 	const auto value_caps = static_cast<PHIDP_VALUE_CAPS>(HeapAlloc(hHeap, 0, sizeof(HIDP_VALUE_CAPS) * length));
+
+	// Get input value caps.
 	if (HidP_GetValueCaps(HidP_Input, value_caps, &length, pre_parsed_data) != HIDP_STATUS_SUCCESS)
 	{
 		HeapFree(hHeap, 0, raw_input);
@@ -465,6 +495,10 @@ TouchPadInputData GetTouchData(HRAWINPUT hRawInputHandle)
 		return data;
 	}
 
+	// Initialize vector to hold touchpad contact data.
+	std::vector<TouchPadContact> contacts;
+
+	// Loop through input value caps and retrieve touchpad data.
 	ULONG value;
 	UINT scan_time = 0;
 	UINT contact_count = 0;
@@ -495,9 +529,10 @@ TouchPadInputData GetTouchData(HRAWINPUT hRawInputHandle)
 			else if (usage_page == kDigitizerInfoUsagePage && usage == kDigitizerUsageContactCount)
 			{
 				contact_count = value;
-				// If three fingers are touching the touchpad at any point, allow to start drag
+
+				// If three fingers are touching the touchpad at any point, allow start of gesture
 				if (contact_count == 3)
-					data.valid_contact = true;
+					data.can_perform_gesture = true;
 			}
 			break;
 		default:
@@ -510,16 +545,19 @@ TouchPadInputData GetTouchData(HRAWINPUT hRawInputHandle)
 			break;
 		}
 
+		// If all contact fields are populated, add contact to list and reset fields.
 		if (contact.contact_id != kInitValue && contact.x != kInitValue && contact.y != kInitValue)
 		{
 			contacts.emplace_back(contact);
 			contact = {kInitValue, kInitValue, kInitValue};
 		}
 	}
+	// Free allocated memory.
 	HeapFree(hHeap, 0, raw_input);
 	HeapFree(hHeap, 0, pre_parsed_data);
 	HeapFree(hHeap, 0, value_caps);
 
+	// Populate TouchPadInputData struct and return.
 	data.contacts = contacts;
 	data.scan_time = scan_time;
 	data.contact_count = contact_count;
@@ -549,36 +587,59 @@ void ReadPrecisionTouchPadRegistry()
 		RegCloseKey(touch_pad_key);
 		return;
 	}
-	// Changes value from range [0, 20] to range [0.0, 1.0]
+	// Changes value from range [0, 20] to range [1.0 -> 2.0]
 	precision_touch_cursor_speed = cursor_speed * 5 / 100.0f;
 }
 
-void StartDragging()
+/**
+ * \brief Creates a menu and displays it at the cursor position. The menu contains options
+ * to run the application on startup or remove the startup task, and to quit the application.
+ *
+ * \param hWnd Handle to the window that will own the menu.
+ */
+void CreateTrayMenu(const HWND hWnd)
 {
-	auto a1 = std::async(std::launch::async, SimulateClick, MOUSEEVENTF_LEFTDOWN);
-	is_dragging = true;
+	// Get the cursor position to determine where to display the menu.
+	POINT pt;
+	GetCursorPos(&pt);
+
+	// Create the popup menu.
+	const HMENU hMenu = CreatePopupMenu();
+
+	// Add the appropriate menu item depending on whether the application is set to run on startup.
+	if (StartupRegistryKeyExists())
+	{
+		// Add the "Remove startup task" menu item.
+		AppendMenu(hMenu, MF_STRING, kRemoveTaskMenuItemId, TEXT("Remove startup task"));
+	}
+	else
+	{
+		// Add the "Run on startup" menu item.
+		AppendMenu(hMenu, MF_STRING, kCreateTaskMenuItemId, TEXT("Run on startup"));
+	}
+
+	// Add a separator and the "Quit" menu item.
+	AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
+	AppendMenu(hMenu, MF_STRING, kQuitMenuItemId, TEXT("Quit"));
+
+	// Set the window specified by hWnd to the foreground, so that the menu will be displayed above it.
+	SetForegroundWindow(hWnd);
+
+	// Display the popup menu.
+	TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hWnd, nullptr);
+
+	PostMessage(hWnd, WM_NULL, 0, 0);
+	DestroyMenu(hMenu);
 }
 
-void StopDragging()
-{
-	auto a = std::async(std::launch::async, SimulateClick, MOUSEEVENTF_LEFTUP);
-	is_dragging = false;
-}
-
-DOUBLE ClampDouble(double in, double min, double max)
-{
-	if (in > max)
-		return max;
-	if (in < min)
-		return min;
-	return in;
-}
-
+/**
+ * \brief Checks if the registry key for starting the program at system startup exists.
+ * \return True if the registry key exists, false otherwise.
+ */
 bool StartupRegistryKeyExists()
 {
 	HKEY hKey;
-	const wchar_t* keyName = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
-	LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, keyName, 0, KEY_READ, &hKey);
+	LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, kStartupProgramRegistryKey, 0, KEY_READ, &hKey);
 	if (result != ERROR_SUCCESS)
 		return false;
 	DWORD valueSize = 0;
@@ -587,6 +648,9 @@ bool StartupRegistryKeyExists()
 	return result == ERROR_SUCCESS;
 }
 
+/**
+ * \brief Adds the registry key for starting the program at system startup.
+ */
 void AddStartupRegistryKey()
 {
 	HKEY hKey;
@@ -607,6 +671,9 @@ void AddStartupRegistryKey()
 	RegCloseKey(hKey);
 }
 
+/**
+ * \brief Removes the registry key for starting the program at system startup. Displays a message box on success.
+ */
 void RemoveStartupRegistryKey()
 {
 	HKEY hKey;
@@ -617,4 +684,28 @@ void RemoveStartupRegistryKey()
 	if (result == ERROR_SUCCESS)
 		MessageBox(nullptr, TEXT("Startup task has beeen removed successfully."), L"Three Finger Drag", MB_OK);
 	RegCloseKey(hKey);
+}
+
+/**
+ * \brief Asynchronously calls a left click down mouse click & sets dragging state to true
+ */
+void StartDragging()
+{
+	auto a1 = std::async(std::launch::async, SimulateClick, MOUSEEVENTF_LEFTDOWN);
+	is_dragging = true;
+}
+
+/**
+ * \brief Asynchronously calls a left click down mouse click & sets dragging state to true
+ */
+void StopDragging()
+{
+	auto a = std::async(std::launch::async, SimulateClick, MOUSEEVENTF_LEFTUP);
+	is_dragging = false;
+	gesture_frames_skipped = 0;
+}
+
+double ClampDouble(const double in, const double min, const double max)
+{
+	return in < min ? min : in > max ? max : in;
 }
