@@ -11,8 +11,7 @@ constexpr auto kUpdateSettingsPeriodMs = std::chrono::milliseconds(3000);
 constexpr auto kTouchActivityPeriodMs = std::chrono::milliseconds(75);
 constexpr auto kInactivityThresholdMs = 50;
 constexpr auto kNumSkippedFrames = 10;
-constexpr auto kMaxTouchMovementSpeed = 40;
-constexpr auto kTouchLogFactor = 32.0;
+constexpr auto kTouchLogFactor = 12.0;
 constexpr auto kMaxLoadString = 100;
 constexpr auto kInitValue = 65535;
 constexpr auto kDigitizerValueUsagePage = 0x01;
@@ -411,8 +410,11 @@ void MoveMousePointer(const TouchPadInputData& data,
 				continue;
 
 			// Calculate the movement delta for the current finger
-			const double delta_x = (contact.x - previous_contact.x) * precision_touch_cursor_speed;
-			const double delta_y = (contact.y - previous_contact.y) * precision_touch_cursor_speed;
+			const double x_diff = contact.x - previous_contact.x;
+			const double y_diff = contact.y - previous_contact.y;
+
+			const double delta_x = x_diff + x_diff * precision_touch_cursor_speed;
+			const double delta_y = y_diff + y_diff * precision_touch_cursor_speed;
 
 			// Check if any movement was present since the last received raw input
 			if (std::abs(delta_x) > 0 || std::abs(delta_y) > 0)
@@ -432,8 +434,7 @@ void MoveMousePointer(const TouchPadInputData& data,
 
 		// Apply movement acceleration using a logarithmic function
 		const double movement_mag = std::sqrt(total_delta_x * total_delta_x + total_delta_y * total_delta_y);
-		const double speed = ClampDouble(movement_mag, 0, kMaxTouchMovementSpeed);
-		const double factor = std::log(speed) / std::log(kTouchLogFactor);
+		const double factor = std::log(movement_mag + 1) / kTouchLogFactor;
 
 		total_delta_x = std::round(total_delta_x * factor);
 		total_delta_y = std::round(total_delta_y * factor);
