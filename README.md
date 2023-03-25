@@ -3,13 +3,15 @@
 
 # ![icon](https://i.ibb.co/JcnqD2W/png64x64-TFD.png)  ThreeFingerDrag
 
-ThreeFingerDrag is a lightweight tool that emulates the functionality of three-finger drag on Mac OS, but for Windows 8 and above. 
+ThreeFingerDrag is a lightweight tool that emulates the functionality of three-finger drag from Mac OS, but on Windows 8 and later. 
 
 ## Usage
 
 The application runs in the background of the system, and can be closed from its system tray menu.
 
 To run on startup of Windows, open the tray menu and select the "Run on startup" option.  
+
+**NOTE:** It's recommended to remove any existing three-finger swipe gestures within *Touchpad Settings* in order to prevent possible interference.
 
 ## Contributing
 
