@@ -432,11 +432,11 @@ void MoveMousePointer(const TouchPadInputData& data,
 
 		// Apply movement acceleration using a logarithmic function
 		const double movement_mag = std::sqrt(total_delta_x * total_delta_x + total_delta_y * total_delta_y);
-		const double speed = ClampDouble(movement_mag, 1, kMaxTouchMovementSpeed);
+		const double speed = ClampDouble(movement_mag, 0, kMaxTouchMovementSpeed);
 		const double factor = std::log(speed) / std::log(kTouchLogFactor);
 
-		total_delta_x = static_cast<int>(total_delta_x * factor);
-		total_delta_y = static_cast<int>(total_delta_y * factor);
+		total_delta_x = std::round(total_delta_x * factor);
+		total_delta_y = std::round(total_delta_y * factor);
 	}
 
 	// Move the mouse pointer based on the calculated vector
