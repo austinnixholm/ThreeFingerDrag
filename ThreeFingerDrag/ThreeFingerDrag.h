@@ -1,15 +1,7 @@
 #pragma once
 
-#define VERSION_MAJOR 1
-#define VERSION_MINOR 0
-#define VERSION_PATCH 0
-
-#define STR_HELPER(x) #x
-#define STR(x) STR_HELPER(x)
-
-#define VERSION STR(VERSION_MAJOR) "." STR(VERSION_MINOR) "." STR(VERSION_PATCH)
-
 #include "resource.h"
+#include "Logger.h"
 
 #include <vector>
 #include <chrono>
@@ -18,6 +10,13 @@
 #include <thread>
 #include <cstring>
 
+constexpr int kVersionMajor = 1;
+constexpr int kVersionMinor = 0;
+constexpr int kVersionPatch = 1;
+
+inline std::string GetVersionString() {
+	return std::to_string(kVersionMajor) + "." + std::to_string(kVersionMinor) + "." + std::to_string(kVersionPatch);
+}
 
 struct TouchPadContact
 {

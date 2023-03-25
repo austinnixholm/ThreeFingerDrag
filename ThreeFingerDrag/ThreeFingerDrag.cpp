@@ -12,7 +12,6 @@ constexpr auto kTouchActivityPeriodMs = std::chrono::milliseconds(75);
 constexpr auto kInactivityThresholdMs = 50;
 constexpr auto kNumSkippedFrames = 10;
 constexpr auto kMaxTouchMovementSpeed = 40;
-constexpr auto kTouchMovementAcceleration = 1;
 constexpr auto kTouchLogFactor = 32.0;
 constexpr auto kMaxLoadString = 100;
 constexpr auto kInitValue = 65535;
@@ -43,26 +42,30 @@ std::thread update_settings_thread;
 std::thread touch_activity_thread;
 std::chrono::time_point<std::chrono::steady_clock> last_detection; // Last time gesture was detected
 TouchPadInputData previous_data; // Last detected touch pad data
+Logger logger("ThreeFingerDrag");
 
 // Forward declarations
 
 ATOM RegisterWindowClass(HINSTANCE hInstance);
 BOOL InitInstance(HINSTANCE, int);
-LRESULT ParseRawInput(LPARAM lParam);
+LRESULT HandleRawTouchInput(LPARAM lParam);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 DOUBLE ClampDouble(double in, double min, double max);
 TouchPadInputData GetTouchData(HRAWINPUT hRawInputHandle);
 bool StartupRegistryKeyExists();
+void DisplayErrorMessage(const std::string& message);
 void CreateTrayMenu(HWND hWnd);
 void RemoveStartupRegistryKey();
 void AddStartupRegistryKey();
-void ReadPrecisionTouchPadRegistry();
-void CreateUpdateThread();
-void CreateActivityThread();
+void ReadPrecisionTouchPadInfo();
+void StartUpdateThread();
+void StartActivityThread();
 void SimulateClick(DWORD flags);
 void MoveMousePointer(const TouchPadInputData& data, const std::chrono::time_point<std::chrono::steady_clock>& now);
 void StartDragging();
 void StopDragging();
+void HandleUncaughtExceptions();
+
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                       _In_opt_ HINSTANCE hPrevInstance,
@@ -72,6 +75,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
+	std::set_terminate(HandleUncaughtExceptions);
 
 	// Single application instance check
 	const HANDLE hMutex = CreateMutex(nullptr, TRUE, kProgramName);
@@ -84,7 +88,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	}
 
 	// Read any user values from Windows precision touch pad settings from registry
-	ReadPrecisionTouchPadRegistry();
+	ReadPrecisionTouchPadInfo();
 
 	// Initialize global strings
 	LoadStringW(hInstance, IDS_APP_TITLE, szTitle, kMaxLoadString);
@@ -93,11 +97,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	// Perform application initialization:
 	if (!InitInstance(hInstance, nCmdShow))
+	{
+		logger.Error("Application initialization failed.");
 		return FALSE;
+	}
 
-	// Threads
-	CreateUpdateThread();
-	CreateActivityThread();
+	// Start threads
+	StartUpdateThread();
+	StartActivityThread();
 
 	MSG msg;
 
@@ -147,7 +154,10 @@ BOOL InitInstance(const HINSTANCE hInstance, int nCmdShow)
 	hWnd = CreateWindowEx(WS_EX_TOOLWINDOW, szWindowClass, szTitle, 0,
 	                      0, 0, 0, 0, nullptr, nullptr, hInstance, nullptr);
 	if (!hWnd)
+	{
+		logger.Error("Window handle could not be created!");
 		return FALSE;
+	}
 
 	// Register raw input touch device
 
@@ -158,9 +168,10 @@ BOOL InitInstance(const HINSTANCE hInstance, int nCmdShow)
 	rid.dwFlags = RIDEV_INPUTSINK; // Receive input even when the application is in the background
 	rid.hwndTarget = hWnd; // Handle to the application window
 
+	const auto message = std::string();
 	if (!RegisterRawInputDevices(&rid, 1, sizeof(RAWINPUTDEVICE)))
 	{
-		MessageBox(nullptr, TEXT("Raw touch device couldn't be registered. Program will now exit."), TEXT("Three Finger Drag"), MB_OK | MB_ICONERROR);
+		DisplayErrorMessage("Raw touch device couldn't be registered. Program will now exit.");
 		return FALSE;
 	}
 
@@ -173,7 +184,7 @@ BOOL InitInstance(const HINSTANCE hInstance, int nCmdShow)
 	nid.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_THREEFINGERDRAG));
 
 	std::string title = "Three Finger Drag ";
-	title.append(VERSION);
+	title.append(GetVersionString());
 	const std::wstring w_title(title.begin(), title.end());
 	lstrcpy(nid.szTip, w_title.c_str());
 
@@ -186,9 +197,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
 	{
+	case WM_CREATE:
+		{
+			SendMessage(hWnd, WM_SETICON, ICON_BIG, LPARAM(LoadIcon(hInst, MAKEINTRESOURCE(IDI_THREEFINGERDRAG))));
+			SendMessage(hWnd, WM_SETICON, ICON_SMALL, LPARAM(LoadIcon(hInst, MAKEINTRESOURCE(IDI_SMALL))));
+		}
+		break;
+
 	case WM_INPUT:
 		{
-			auto a = std::async(std::launch::async, ParseRawInput, lParam);
+			auto a = std::async(std::launch::async, HandleRawTouchInput, lParam);
 		}
 		return 0;
 
@@ -215,10 +233,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_COMMAND:
 		{
-			const int wm_id = LOWORD(wParam);
-
 			// Parse the menu selections
-			switch (wm_id)
+			switch (LOWORD(wParam))
 			{
 			case kQuitMenuItemId:
 				DestroyWindow(hWnd);
@@ -245,7 +261,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 
-LRESULT ParseRawInput(const LPARAM lParam)
+/**
+ * \brief Handles raw touch input and performs actions based on the touch data.
+ *
+ * This function processes raw touch input from a touchpad and performs actions
+ * based on the touch data. Specifically, it handles three-finger drag gestures
+ * by moving the mouse pointer and updates the previous touch data and detection
+ * time. If an ongoing drag gesture is interrupted (i.e. a finger is lifted),
+ * the function resets the touch data and stops the drag gesture.
+ *
+ * \param lParam The lParam value of the raw input message.
+ * \return Always returns 0 to indicate success.
+ */
+LRESULT HandleRawTouchInput(const LPARAM lParam)
 {
 	const auto hRawInputHandle = (HRAWINPUT)lParam;
 	TouchPadInputData data = GetTouchData(hRawInputHandle);
@@ -263,8 +291,7 @@ LRESULT ParseRawInput(const LPARAM lParam)
 	}
 
 	// Reset if an ongoing drag gesture was interrupted (ie: finger lifted)
-	const auto gesture_interrupted = previous_data.can_perform_gesture && is_dragging && data.contact_count < 3;
-	if (gesture_interrupted)
+	if (previous_data.can_perform_gesture && is_dragging && data.contact_count < 3)
 	{
 		StopDragging();
 		data.contacts.clear();
@@ -275,14 +302,14 @@ LRESULT ParseRawInput(const LPARAM lParam)
 /**
  * \brief Starts a thread that periodically updates setting info.
  */
-void CreateUpdateThread()
+void StartUpdateThread()
 {
 	update_settings_thread = std::thread([&]
 	{
 		while (run_loops)
 		{
 			std::this_thread::sleep_for(kUpdateSettingsPeriodMs);
-			ReadPrecisionTouchPadRegistry();
+			ReadPrecisionTouchPadInfo();
 		}
 	});
 }
@@ -290,7 +317,7 @@ void CreateUpdateThread()
 /**
  * \brief Starts a thread that periodically checks 
  */
-void CreateActivityThread()
+void StartActivityThread()
 {
 	touch_activity_thread = std::thread([&]
 	{
@@ -317,7 +344,7 @@ void CreateActivityThread()
  */
 void SimulateClick(const DWORD flags)
 {
-	std::lock_guard<std::mutex> lk(mutex);
+	std::lock_guard lk(mutex);
 	INPUT input;
 	input.type = INPUT_MOUSE;
 	input.mi.dx = 0;
@@ -408,8 +435,8 @@ void MoveMousePointer(const TouchPadInputData& data,
 		const double speed = ClampDouble(movement_mag, 1, kMaxTouchMovementSpeed);
 		const double factor = std::log(speed) / std::log(kTouchLogFactor);
 
-		total_delta_x = static_cast<int>(total_delta_x * factor * kTouchMovementAcceleration);
-		total_delta_y = static_cast<int>(total_delta_y * factor * kTouchMovementAcceleration);
+		total_delta_x = static_cast<int>(total_delta_x * factor);
+		total_delta_y = static_cast<int>(total_delta_y * factor);
 	}
 
 	// Move the mouse pointer based on the calculated vector
@@ -564,7 +591,15 @@ TouchPadInputData GetTouchData(const HRAWINPUT hRawInputHandle)
 	return data;
 }
 
-void ReadPrecisionTouchPadRegistry()
+/**
+ * \brief Reads and updates cursor speed information from the Precision Touchpad registry.
+ *
+ * This method opens the Precision Touchpad registry key, reads the cursor speed value,
+ * and updates the internal cursor speed value used by the program. The cursor speed
+ * value is scaled from the range of [0, 20] to [0.0, 1.0] to match the range used by
+ * the gesture movement calculation. 
+ */
+void ReadPrecisionTouchPadInfo()
 {
 	// Open the Precision Touchpad key in the registry
 	HKEY touch_pad_key;
@@ -572,7 +607,7 @@ void ReadPrecisionTouchPadRegistry()
 	                           KEY_READ, &touch_pad_key);
 	if (result != ERROR_SUCCESS)
 	{
-		std::cerr << "Failed to open Precision Touchpad cursor speed key." << std::endl;
+		logger.Error("Failed to open Precision Touchpad registry key.");
 		return;
 	}
 
@@ -583,11 +618,11 @@ void ReadPrecisionTouchPadRegistry()
 	                         &data_size);
 	if (result != ERROR_SUCCESS)
 	{
-		std::cerr << "Failed to read cursor speed value from registry." << std::endl;
+		logger.Error("Failed to read cursor speed value from registry.");
 		RegCloseKey(touch_pad_key);
 		return;
 	}
-	// Changes value from range [0, 20] to range [1.0 -> 2.0]
+	// Changes value from range [0, 20] to range [0.0 -> 1.0]
 	precision_touch_cursor_speed = cursor_speed * 5 / 100.0f;
 }
 
@@ -658,7 +693,7 @@ void AddStartupRegistryKey()
 	const DWORD path_len = GetModuleFileName(nullptr, app_path, MAX_PATH);
 	if (path_len == 0 || path_len == MAX_PATH)
 	{
-		// Error: could not retrieve the application path
+		logger.Error("Could not retrieve the application path!");
 		return;
 	}
 	LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, kStartupProgramRegistryKey, 0, KEY_WRITE, &hKey);
@@ -667,7 +702,13 @@ void AddStartupRegistryKey()
 	result = RegSetValueEx(hKey, kProgramName, 0, REG_SZ, (BYTE*)app_path,
 	                       (DWORD)(wcslen(app_path) + 1) * sizeof(wchar_t));
 	if (result == ERROR_SUCCESS)
-		MessageBox(nullptr, TEXT("Startup task has beeen created successfully."), L"Three Finger Drag", MB_OK);
+	{
+		MessageBox(nullptr, TEXT("Startup task has been created successfully."), L"Three Finger Drag", MB_OK);
+		logger.Info("Startup task removed.");
+	}
+	else
+		DisplayErrorMessage("An error occurred while trying to set the registry value.");
+
 	RegCloseKey(hKey);
 }
 
@@ -679,11 +720,31 @@ void RemoveStartupRegistryKey()
 	HKEY hKey;
 	LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, kStartupProgramRegistryKey, 0, KEY_WRITE, &hKey);
 	if (result != ERROR_SUCCESS)
+	{
+		DisplayErrorMessage("Registry key could not be found.");
 		return;
+	}
 	result = RegDeleteValue(hKey, kProgramName);
 	if (result == ERROR_SUCCESS)
-		MessageBox(nullptr, TEXT("Startup task has beeen removed successfully."), L"Three Finger Drag", MB_OK);
+	{
+		MessageBox(nullptr, TEXT("Startup task has been removed successfully."), L"Three Finger Drag", MB_OK);
+		logger.Info("Startup task removed.");
+	}
 	RegCloseKey(hKey);
+}
+
+/**
+ * \brief Displays a message box popup with an error icon and message.
+ * \param message The message to display
+ * \remarks The sent message will be logged as an error.
+ */
+void DisplayErrorMessage(const std::string& message)
+{
+	const std::wstring temp = std::wstring(message.begin(), message.end());
+	const LPCWSTR wstr_message = temp.c_str();
+
+	MessageBox(nullptr, wstr_message,TEXT("Three Finger Drag"), MB_OK | MB_ICONERROR);
+	logger.Error(message);
 }
 
 /**
@@ -708,4 +769,23 @@ void StopDragging()
 double ClampDouble(const double in, const double min, const double max)
 {
 	return in < min ? min : in > max ? max : in;
+}
+
+void HandleUncaughtExceptions()
+{
+	std::stringstream ss;
+	try
+	{
+		throw; // Rethrow the exception to get the exception type and message
+	}
+	catch (const std::exception& e)
+	{
+		ss << "Unhandled exception: " << typeid(e).name() << ": " << e.what() << "\n";
+	}
+	catch (...)
+	{
+		ss << "Unhandled exception: Unknown exception type\n";
+	}
+	logger.Error(ss.str());
+	std::terminate();
 }
