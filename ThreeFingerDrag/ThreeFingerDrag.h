@@ -12,7 +12,7 @@
 
 constexpr int kVersionMajor = 1;
 constexpr int kVersionMinor = 0;
-constexpr int kVersionPatch = 1;
+constexpr int kVersionPatch = 2;
 
 inline std::string GetVersionString() {
 	return std::to_string(kVersionMajor) + "." + std::to_string(kVersionMinor) + "." + std::to_string(kVersionPatch);

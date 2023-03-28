@@ -209,6 +209,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		return 0;
 
+	// Notify Icon
 	case WM_USER + 1:
 		switch (lParam)
 		{
@@ -216,16 +217,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case WM_RBUTTONDOWN:
 			CreateTrayMenu(hWnd);
 			break;
-
-		case WM_CLOSE:
-			DestroyWindow(hWnd);
-			break;
-
-		case WM_DESTROY:
-			Shell_NotifyIcon(NIM_DELETE, &nid);
-			PostQuitMessage(0);
-			break;
-
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
@@ -250,7 +241,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_DESTROY:
-		Shell_NotifyIcon(NIM_DELETE, &nid);
 		PostQuitMessage(0);
 		break;
 	default:
