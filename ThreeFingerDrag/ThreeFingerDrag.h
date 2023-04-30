@@ -1,34 +1,54 @@
 #pragma once
 
-#include "resource.h"
-#include "Logger.h"
-
-#include <vector>
-#include <chrono>
-#include <future>
-#include <mutex>
 #include <thread>
-#include <cstring>
+#include <iostream>
+#include <sstream>
+#include <Windows.h>
 
-constexpr int kVersionMajor = 1;
-constexpr int kVersionMinor = 0;
-constexpr int kVersionPatch = 2;
+#include "resource.h"
+#include "logger.h"
+#include "touch_gestures.h"
+#include "wintoastlib.h"
+#include "popups.h"
+
+
+constexpr int VERSION_MAJOR = 1;
+constexpr int VERSION_MINOR = 0;
+constexpr int VERSION_PATCH = 3;
+
+constexpr char kVersionFileName[] = "version.txt";
 
 inline std::string GetVersionString() {
-	return std::to_string(kVersionMajor) + "." + std::to_string(kVersionMinor) + "." + std::to_string(kVersionPatch);
+	return std::to_string(VERSION_MAJOR) + "." + std::to_string(VERSION_MINOR) + "." + std::to_string(VERSION_PATCH);
 }
 
-struct TouchPadContact
-{
-	int contact_id;
-	int x;
-	int y;
-};
+inline std::string GetVersionedTitle() {
+    return "ThreeFingerDrag " + GetVersionString();
+}
 
-struct TouchPadInputData
-{
-	std::vector<TouchPadContact> contacts;
-	int scan_time{};
-	int contact_count{};
-	bool can_perform_gesture{};
-};
+inline bool IsInitialStartup() {
+
+    size_t len;
+    char* env_path;
+    const errno_t err = _dupenv_s(&env_path, &len, "LOCALAPPDATA" );
+
+    if (err == 0 && env_path != nullptr) {
+        std::string log_file_path_ = std::string(env_path);
+        log_file_path_ += "\\";
+        log_file_path_ += "ThreeFingerDrag";
+        log_file_path_ += "\\";
+        log_file_path_ += kVersionFileName;
+
+        if (std::filesystem::exists(log_file_path_))
+            return false;
+
+        std::ofstream versionFile(log_file_path_);
+        if (!versionFile)
+            return false;
+
+        versionFile << GetVersionString();
+        versionFile.close();
+    }
+
+    return true;
+}

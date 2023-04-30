@@ -1,119 +1,80 @@
 #pragma once
 
-
 #include <fstream>
 #include <chrono>
-#include <ctime>
-#include <iomanip>
 #include <string>
-#include <sstream>
 #include <filesystem>
 
+/**
+ * @brief A logger class for writing log messages to a file.
+ */
 class Logger
 {
 public:
-	Logger(const Logger&) = delete;
-	Logger& operator=(const Logger&) = delete;
-	Logger(Logger&&) = default;
-	Logger& operator=(Logger&&) = default;
 
-	/**
-	 * \brief Constructs the logger and opens the file for writing log lines to. 
-	 * \param localAppDataFolder The application folder name.
-	 * \remarks If the folder or file do not exist, they will be created.
-	 */
-	Logger(const std::string& localAppDataFolder)
-	{
-		size_t len;
-		char* env_path;
-		const errno_t err = _dupenv_s(&env_path, &len, "LOCALAPPDATA");
+    /**
+     * @brief Writes an info log message to the file.
+     * @param message The log message.
+     */
+    void Info(const std::string& message);
 
-		// If the environment variable exists and can be retrieved successfully, use it to construct the path to the log file.
-		if (err == 0 && env_path != nullptr)
-		{
-			log_file_path_ = std::string(env_path);
-			log_file_path_ += "\\";
-			log_file_path_ += localAppDataFolder;
+    /**
+     * @brief Writes a debug log message to the file.
+     * @param message The log message.
+     */
+    void Debug(const std::string& message);
 
-			// Check if the folder exists, and create it if necessary
-			if (!std::filesystem::exists(log_file_path_))
-				std::filesystem::create_directory(log_file_path_);
+    /**
+     * @brief Writes a warning log message to the file.
+     * @param message The log message.
+     */
+    void Warning(const std::string& message);
 
-			log_file_path_ += "\\log.txt";
+    /**
+     * @brief Writes an error log message to the file.
+     * @param message The log message.
+     */
+    void Error(const std::string& message);
 
-			// Check if the log file exists, and create it if necessary
-			if (!std::filesystem::exists(log_file_path_))
-			{
-				std::ofstream file(log_file_path_, std::ios::out);
-				file.close();
-			}
+    /**
+     * @brief Destructor that closes the log file.
+     */
+    ~Logger();
 
-			log_file_.open(log_file_path_, std::ios::out | std::ios::app);
-			free(env_path);
-		}
-	}
+    Logger(const Logger&) = delete;
+    Logger& operator=(const Logger&) = delete;
+    Logger(Logger&&) noexcept = default;
+    Logger& operator=(Logger&&) noexcept = default;
 
-	void Info(const std::string& message)
-	{
-		WriteLog("[INFO]", message);
-	}
-
-	void Debug(const std::string& message)
-	{
-		WriteLog("[DEBUG]", message);
-	}
-
-	void Warning(const std::string& message)
-	{
-		Info("[WARNING], message");
-	}
-
-	void Error(const std::string& message)
-	{
-		WriteLog("[ERROR]", message);
-	}
-
-	~Logger()
-	{
-		log_file_.close();
-	}
+    /**
+     * @brief Returns the singleton instance of the logger.
+     * @param localAppDataFolderName The application folder name.
+     * @param logFileName The name of the log file.
+     * @return The logger instance.
+     */
+    static Logger& GetInstance();
 
 private:
-	std::ofstream log_file_;
-	std::string log_file_path_;
+    /**
+     * @brief Constructs the logger and opens the file for writing log lines to.
+     * @param localAppDataFolderName The application folder name.
+     *
+     * If the folder or file do not exist, they will be created.
+     */
+    Logger(const std::string& localAppDataFolderName, const std::string& logFileName);
 
-	void WriteLog(const std::string& type, const std::string& message)
-	{
-		// Check if the log file has exceeded the threshold size of 5 MB
-		const std::streampos current_pos = log_file_.tellp();
-		const std::streampos max_size = 5 * 1024 * 1024; // 5MB
-		if (current_pos >= max_size)
-		{
-			// Truncate the log file to zero size
-			log_file_.close();
-			std::ofstream file(log_file_path_, std::ios::out | std::ios::trunc);
-			file.close();
-		}
+    std::ofstream log_file_; ///< The log file stream.
+    std::string log_file_path_; ///< The path to the log file.
 
-		// Get the current system time
-		const auto now = std::chrono::system_clock::now();
-		const std::time_t now_time = std::chrono::system_clock::to_time_t(now);
-
-		// Convert the time to a string
-		std::tm time_info;
-		if (localtime_s(&time_info, &now_time) == 0)
-		{
-			std::stringstream ss;
-			ss << std::put_time(&time_info, "%y-%m-%d %H:%M:%S");
-			const std::string timestamp_str = ss.str();
-
-			// Write the log message to the file with the timestamp
-			log_file_ << timestamp_str << " " << type << " " << message << std::endl;
-		}
-		else
-		{
-			// Write the log message to the file without the timestamp
-			log_file_ << type << " - " << message << std::endl;
-		}
-	}
+    /**
+     * @brief Writes a log message to the file with the specified log type.
+     * @param type The log type, such as [INFO], [DEBUG], [WARNING], or [ERROR].
+     * @param message The log message.
+     */
+    void WriteLog(const std::string& type, const std::string& message);
 };
+
+#define INFO(msg)   Logger::GetInstance().Info(msg)
+#define DEBUG(msg)  Logger::GetInstance().Debug(msg)
+#define WARNING(msg)  Logger::GetInstance().Warning(msg)
+#define ERROR(msg)  Logger::GetInstance().Error(msg)

@@ -133,6 +133,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\WinToast-1.3.0\include\wintoastlib.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="logger.h" />
     <ClInclude Include="popups.h" />
@@ -140,7 +141,6 @@
     <ClInclude Include="targetver.h" />
     <ClInclude Include="ThreeFingerDrag.h" />
     <ClInclude Include="touch_gestures.h" />
-    <ClInclude Include="wintoastlib.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="logger.cpp" />

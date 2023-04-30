@@ -621,6 +621,20 @@
         }
         "Shortcut"
         {
+            "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_0156FE0BFDB4492A9381ED0A9260644A"
+            {
+            "Name" = "8:ThreeFingerDrag"
+            "Arguments" = "8:"
+            "Description" = "8:"
+            "ShowCmd" = "3:1"
+            "IconIndex" = "3:0"
+            "Transitive" = "11:FALSE"
+            "Target" = "8:_A2BDA8FB8159414F9B03AC49BA5C030F"
+            "Folder" = "8:_ECCAB97521F84469A47080153E9124A9"
+            "WorkingFolder" = "8:_CA9CEE4F741A47BDB17260D7DCE348B0"
+            "Icon" = "8:_1BF38268AF2F4F54B2C86EB3E71CB9DA"
+            "Feature" = "8:"
+            }
             "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_4CAE1714190C40339933961B7DC726B4"
             {
             "Name" = "8:ThreeFingerDrag"
@@ -900,7 +914,7 @@
                 {
                     "{688940B3-5CA9-4162-8DEE-2993FA9D8CBC}:_4E9D419DA2AD4BCB88E05F736A7F1C31"
                     {
-                    "Sequence" = "3:110"
+                    "Sequence" = "3:100"
                     "DisplayName" = "8:Finished"
                     "UseDynamicProperties" = "11:TRUE"
                     "IsDependency" = "11:FALSE"
