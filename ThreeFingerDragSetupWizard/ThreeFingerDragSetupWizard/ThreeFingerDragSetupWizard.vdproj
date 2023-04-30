@@ -33,6 +33,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_1B0DA62113F62A1A0D49556666FA0D62"
+        "OwnerKey" = "8:_A2BDA8FB8159414F9B03AC49BA5C030F"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_1BF38268AF2F4F54B2C86EB3E71CB9DA"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
@@ -88,6 +94,12 @@
         "Entry"
         {
         "MsmKey" = "8:_B7E87EBAB1A81BA31B500874D1F6CB36"
+        "OwnerKey" = "8:_A2BDA8FB8159414F9B03AC49BA5C030F"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_D09FD62751F73DCD4F1138CA70246FB0"
         "OwnerKey" = "8:_A2BDA8FB8159414F9B03AC49BA5C030F"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -228,6 +240,26 @@
             {
             "SourcePath" = "8:api-ms-win-crt-time-l1-1-0.dll"
             "TargetName" = "8:api-ms-win-crt-time-l1-1-0.dll"
+            "Tag" = "8:"
+            "Folder" = "8:_CA9CEE4F741A47BDB17260D7DCE348B0"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:TRUE"
+            "IsolateTo" = "8:"
+            }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_1B0DA62113F62A1A0D49556666FA0D62"
+            {
+            "SourcePath" = "8:api-ms-win-crt-convert-l1-1-0.dll"
+            "TargetName" = "8:api-ms-win-crt-convert-l1-1-0.dll"
             "Tag" = "8:"
             "Folder" = "8:_CA9CEE4F741A47BDB17260D7DCE348B0"
             "Condition" = "8:"
@@ -424,6 +456,26 @@
             "IsDependency" = "11:TRUE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D09FD62751F73DCD4F1138CA70246FB0"
+            {
+            "SourcePath" = "8:api-ms-win-crt-string-l1-1-0.dll"
+            "TargetName" = "8:api-ms-win-crt-string-l1-1-0.dll"
+            "Tag" = "8:"
+            "Folder" = "8:_CA9CEE4F741A47BDB17260D7DCE348B0"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:TRUE"
+            "IsolateTo" = "8:"
+            }
             "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_D0B8D2AD43BED3336D72F03E7D0B082C"
             {
             "SourcePath" = "8:MSVCP140.dll"
@@ -500,15 +552,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:ThreeFingerDrag"
-        "ProductCode" = "8:{B2CF5EA3-A8B3-4AFD-A050-DE2E9AD547AD}"
-        "PackageCode" = "8:{9D75DF5E-9542-40C3-A9FB-D195A5F8405D}"
+        "ProductCode" = "8:{56283B74-D624-492E-83EC-0735FE72C29C}"
+        "PackageCode" = "8:{4B1B7836-8387-44E3-A965-EADBC39AEEFE}"
         "UpgradeCode" = "8:{1E644716-83DC-46B0-A6E8-EF55CC2C8191}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.0.2"
+        "ProductVersion" = "8:1.0.3"
         "Manufacturer" = "8:Austin Nixholm"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:github.com/austinnixholm"

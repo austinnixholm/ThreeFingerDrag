@@ -30,7 +30,7 @@ inline bool IsInitialStartup() {
 
     size_t len;
     char* env_path;
-    const errno_t err = _dupenv_s(&env_path, &len, "LOCALAPPDATA" );
+    const errno_t err = _dupenv_s(&env_path, &len, "LOCALAPPDATA");
 
     if (err == 0 && env_path != nullptr) {
         std::string log_file_path_ = std::string(env_path);
