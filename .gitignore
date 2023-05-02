@@ -396,6 +396,8 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+# Notepad++ auto-generated backup files
+*.bak
 
 # Extra
 enc_temp_folder/

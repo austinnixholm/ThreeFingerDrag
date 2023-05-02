@@ -22,10 +22,6 @@ inline std::string GetVersionString() {
 	return std::to_string(VERSION_MAJOR) + "." + std::to_string(VERSION_MINOR) + "." + std::to_string(VERSION_PATCH);
 }
 
-inline std::string GetVersionedTitle() {
-    return "ThreeFingerDrag " + GetVersionString();
-}
-
 inline bool IsInitialStartup() {
 
     size_t len;
