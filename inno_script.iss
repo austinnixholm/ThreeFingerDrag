@@ -20,6 +20,7 @@ LicenseFile=LICENSE
 OutputDir=installers
 OutputBaseFilename="ThreeFingerDrag.Setup.{#MyAppVersion}"
 SetupIconFile="{#MyAppName}\{#MyAppName}.ico"
+UninstallDisplayIcon="{app}\{#MyAppName}.ico"
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
