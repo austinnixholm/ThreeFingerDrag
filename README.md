@@ -7,7 +7,7 @@ ThreeFingerDrag is a lightweight tool that emulates the functionality of three-f
 
 ## Usage
 
-Download the [latest release](https://github.com/austinnixholm/ThreeFingerDrag/releases/) and run the installer. You can run the application via the desktop shortcut or from the start menu.
+Download the [latest release](https://github.com/austinnixholm/ThreeFingerDrag/releases/latest) then run the installer & launch the program.
 
 The application runs in the background of the system, and can be configured by clicking the system tray icon.
 
