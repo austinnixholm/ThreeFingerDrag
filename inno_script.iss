@@ -17,7 +17,7 @@ DefaultDirName={pf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 LicenseFile=LICENSE
-OutputDir=Installers
+OutputDir=installers
 OutputBaseFilename="ThreeFingerDrag.Setup.{#MyAppVersion}"
 SetupIconFile="{#MyAppName}\{#MyAppName}.ico"
 Compression=lzma
@@ -28,7 +28,7 @@ WizardStyle=modern
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "x64\Release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "build\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppName}\{#MyAppName}.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppName}\small.ico"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
