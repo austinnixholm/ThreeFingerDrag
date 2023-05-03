@@ -399,5 +399,9 @@ FodyWeavers.xsd
 # Notepad++ auto-generated backup files
 *.bak
 
+# Created setup files
+Installers/
+
 # Extra
 enc_temp_folder/
+

@@ -18,7 +18,7 @@ namespace
 	constexpr auto USAGE_DIGITIZER_Y_COORDINATE = 0x31;
 }
 
-namespace ThreeFingerDrag
+namespace Gestures
 {
 	void GestureProcessor::ParseRawTouchData(const LPARAM lParam)
 	{

@@ -12,39 +12,53 @@
 #include "popups.h"
 
 
-constexpr int VERSION_MAJOR = 1;
-constexpr int VERSION_MINOR = 0;
-constexpr int VERSION_PATCH = 3;
+namespace Application {
 
-constexpr char kVersionFileName[] = "version.txt";
+    constexpr int VERSION_MAJOR = 1;
+    constexpr int VERSION_MINOR = 0;
+    constexpr int VERSION_PATCH = 4;
 
-inline std::string GetVersionString() {
-	return std::to_string(VERSION_MAJOR) + "." + std::to_string(VERSION_MINOR) + "." + std::to_string(VERSION_PATCH);
-}
+    constexpr char VERSION_FILE_NAME[] = "version.txt";
 
-inline bool IsInitialStartup() {
-
-    size_t len;
-    char* env_path;
-    const errno_t err = _dupenv_s(&env_path, &len, "LOCALAPPDATA");
-
-    if (err == 0 && env_path != nullptr) {
-        std::string log_file_path_ = std::string(env_path);
-        log_file_path_ += "\\";
-        log_file_path_ += "ThreeFingerDrag";
-        log_file_path_ += "\\";
-        log_file_path_ += kVersionFileName;
-
-        if (std::filesystem::exists(log_file_path_))
-            return false;
-
-        std::ofstream versionFile(log_file_path_);
-        if (!versionFile)
-            return false;
-
-        versionFile << GetVersionString();
-        versionFile.close();
+    std::string GetVersionString() {
+        return std::to_string(VERSION_MAJOR) + "." + std::to_string(VERSION_MINOR) + "." + std::to_string(VERSION_PATCH);
     }
 
-    return true;
+    /**
+     * @brief Checks if a version.txt file exists in application data and updates it.
+     * @return True if no version file was found
+     */
+    bool IsInitialStartup() {
+        size_t len;
+        char* env_path;
+        const errno_t err = _dupenv_s(&env_path, &len, "LOCALAPPDATA");
+
+        if (err == 0 && env_path != nullptr) {
+            std::string version_file_path_ = std::string(env_path);
+            version_file_path_ += "\\";
+            version_file_path_ += "ThreeFingerDrag";
+
+            // Create the application data directory if necessary
+            if (!std::filesystem::exists(version_file_path_)) 
+                std::filesystem::create_directory(version_file_path_);
+
+            version_file_path_ += "\\";
+            version_file_path_ += VERSION_FILE_NAME;
+
+            // File contents do not need to update after initial creation
+            if (std::filesystem::exists(version_file_path_))
+                return false;
+
+            // Create the file if it has not been created yet, and write the current version to it
+            std::ofstream versionFile(version_file_path_);
+            if (!versionFile)
+                return false;
+
+            versionFile << GetVersionString();
+            versionFile.close();
+        }
+
+        return true;
+    }
 }
+

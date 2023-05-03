@@ -1,6 +1,6 @@
 #include "ThreeFingerDrag.h"
 
-using namespace ThreeFingerDrag;
+using namespace Gestures;
 using namespace WinToastLib;
 
 // Constants
@@ -26,7 +26,7 @@ NOTIFYICONDATA tray_icon_data;
 GestureProcessor gesture_processor;
 std::thread update_settings_thread;
 std::thread touch_activity_thread;
-BOOL run_loops = true;
+BOOL application_running = true;
 
 // Forward declarations
 
@@ -38,8 +38,7 @@ void CreateTrayMenu(HWND hWnd);
 void RemoveStartupRegistryKey();
 void AddStartupRegistryKey();
 void ReadPrecisionTouchPadInfo();
-void StartUpdateThread();
-void StartActivityThread();
+void StartPeriodicUpdateThreads();
 void HandleUncaughtExceptions();
 
 
@@ -78,10 +77,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	}
 
 	// Start threads
-	StartUpdateThread();
-	StartActivityThread();
+	StartPeriodicUpdateThreads();
 
-	if (IsInitialStartup()) {
+	// First time running application
+	if (Application::IsInitialStartup()) {
 		bool result = Popups::DisplayPrompt("Would you like run ThreeFingerDrag on startup of Windows?", "ThreeFingerDrag");
 		if (result)
 			AddStartupRegistryKey();
@@ -101,7 +100,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	Shell_NotifyIcon(NIM_DELETE, &tray_icon_data);
 
 	// Join threads
-	run_loops = false;
+	application_running = false;
 	update_settings_thread.join();
 	touch_activity_thread.join();
 
@@ -141,13 +140,14 @@ BOOL InitInstance(const HINSTANCE hInstance, int nCmdShow)
 		return FALSE;
 	}
 
+	// Initialize WinToast notifications
 
 	auto appName = L"ThreeFingerDrag";
 
 	WinToast::WinToastError error;
 	WinToast::instance()->setAppName(appName);
 
-	auto str = GetVersionString();
+	auto str = Application::GetVersionString();
 	const std::wstring w_version(str.begin(), str.end());
 	const auto aumi = WinToast::configureAUMI(L"Austin Nixholm", appName, L"Tool", L"Current");
 
@@ -175,6 +175,7 @@ BOOL InitInstance(const HINSTANCE hInstance, int nCmdShow)
 	}
 
 	// Initialize tray icon data
+
 	tray_icon_data.cbSize = sizeof(NOTIFYICONDATA);
 	tray_icon_data.hWnd = tool_window_handle;
 	tray_icon_data.uID = 1;
@@ -183,7 +184,7 @@ BOOL InitInstance(const HINSTANCE hInstance, int nCmdShow)
 	tray_icon_data.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_THREEFINGERDRAG));
 
 	std::string title = "Three Finger Drag ";
-	title.append(GetVersionString());
+	title.append(Application::GetVersionString());
 	const std::wstring w_title(title.begin(), title.end());
 	lstrcpy(tray_icon_data.szTip, w_title.c_str());
 
@@ -251,26 +252,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 /**
  * \brief Starts a thread that periodically updates setting info.
  */
-void StartUpdateThread()
+void StartPeriodicUpdateThreads()
 {
+	// Check for any updates to the user's precision touchpad settings every few seconds
 	update_settings_thread = std::thread([&]
 	{
-		while (run_loops)
+		while (application_running)
 		{
 			std::this_thread::sleep_for(UPDATE_SETTINGS_PERIOD_MS);
 			ReadPrecisionTouchPadInfo();
 		}
 	});
-}
 
-/**
- * \brief Starts a thread that periodically checks 
- */
-void StartActivityThread()
-{
+	// Check if the dragging action needs to be completed
 	touch_activity_thread = std::thread([&]
 	{
-		while (run_loops)
+		while (application_running)
 		{
 			std::this_thread::sleep_for(TOUCH_ACTIVITY_PERIOD_MS);
 			if (!gesture_processor.IsDragging())

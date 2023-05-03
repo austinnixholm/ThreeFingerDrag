@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by ThreeFingerDrag.rc
+// Used by Gestures.rc
 
 #define IDS_APP_TITLE			103
 

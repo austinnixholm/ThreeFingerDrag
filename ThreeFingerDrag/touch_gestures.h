@@ -4,7 +4,7 @@
 #include <vector>
 #include <chrono>
 
-namespace ThreeFingerDrag
+namespace Gestures
 {
 	struct TouchPoint
 	{
