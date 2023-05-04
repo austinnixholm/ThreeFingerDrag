@@ -38,6 +38,6 @@ You can build the project using Visual Studio 2017 or newer.
 
 ## Credits
 
-* [mohabouje/WinToast][1] - A library for displaying toast notifications on Windows and later.
+* [mohabouje/WinToast][1] - A library for displaying toast notifications on Windows 8 and later.
 
 [1]: https://github.com/mohabouje/WinToast
