@@ -36,6 +36,8 @@ You can build the project using Visual Studio 2017 or newer.
 2. Right click on the inno_script.iss file and select "Compile" or open the file in the InnoSetup editor and compile it from there.
 3. The created installer executable will be located in the `/installers/` directory in the base project folder.
 
-## Contributing
+## Credits
 
-If you would like to contribute to the development of ThreeFingerDrag, feel free to create a pull request or submit an issue on the repository's [issues page](https://github.com/austinnixholm/ThreeFingerDrag/issues).
+* [mohabouje/WinToast][1] - A library for displaying toast notifications on Windows and later.
+
+[1]: https://github.com/mohabouje/WinToast
