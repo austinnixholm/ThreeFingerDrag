@@ -6,7 +6,7 @@ namespace
 {
 	constexpr auto NUM_SKIPPED_FRAMES = 3;
 	constexpr auto INACTIVITY_THRESHOLD_MS = 50;
-	constexpr auto ACCELERATION_FACTOR = 15.0;
+	constexpr auto ACCELERATION_FACTOR = 20.0;
 
 	constexpr auto INIT_VALUE = 65535;
 	constexpr auto USAGE_PAGE_DIGITIZER_VALUES = 0x01;
@@ -120,7 +120,7 @@ namespace Gestures
 	 * \param current_time  The current time point.
 	 */
 	void GestureProcessor::PerformGestureMovement(const TouchInputData& data,
-	                                        const std::chrono::time_point<std::chrono::steady_clock>& current_time)
+		const std::chrono::time_point<std::chrono::steady_clock>& current_time)
 	{
 		// Ignore initial frames of movement. This prevents unwanted/overlapped behavior in the beginning of the gesture.
 		if (++gesture_frames_skipped_ <= NUM_SKIPPED_FRAMES)
@@ -134,59 +134,65 @@ namespace Gestures
 		if (ms_since_last >= INACTIVITY_THRESHOLD_MS)
 			return;
 
-		// Initialize the change in x and y coordinates of the mouse pointer
-		double total_delta_x = 0;
-		double total_delta_y = 0;
+		if (previous_data_.contacts.empty())
+			return;
 
-		if (!previous_data_.contacts.empty())
+		// Initialize the change in delta_x and delta_y coordinates of the mouse pointer
+		int total_delta_x = 0;
+		int total_delta_y = 0;
+		int valid_touches = 0;
+		for (int i = 0; i < 3; i++)
 		{
-			// Calculate the movement delta for each finger and add them up, keep track of how many fingers have moved
-			int valid_touch_movements = 0;
-			for (int i = 0; i < 3; i++)
+			const auto& contact = data.contacts[i];
+			const auto& previous_contact = previous_data_.contacts[i];
+
+			if (contact.contact_id != previous_contact.contact_id)
+				continue;
+
+			// Calculate the movement delta for the current finger
+			const double x_diff = contact.x - previous_contact.x;
+			const double y_diff = contact.y - previous_contact.y;
+
+			const double delta_x = x_diff + x_diff * precision_touch_cursor_speed_;
+			const double delta_y = y_diff + y_diff * precision_touch_cursor_speed_;
+
+			// Check if any movement was present since the last received raw input
+			if (std::abs(delta_x) > 0 || std::abs(delta_y) > 0)
 			{
-				const auto& contact = data.contacts[i];
-				const auto& previous_contact = previous_data_.contacts[i];
-
-				if (contact.contact_id != previous_contact.contact_id)
-					continue;
-
-				// Calculate the movement delta for the current finger
-				const double x_diff = contact.x - previous_contact.x;
-				const double y_diff = contact.y - previous_contact.y;
-
-				const double delta_x = x_diff + x_diff * precision_touch_cursor_speed_;
-				const double delta_y = y_diff + y_diff * precision_touch_cursor_speed_;
-
-				// Check if any movement was present since the last received raw input
-				if (std::abs(delta_x) > 0 || std::abs(delta_y) > 0)
-					valid_touch_movements++;
-
-				// Add the movement delta for the current finger to the total
-				total_delta_x += delta_x;
-				total_delta_y += delta_y;
+				// Accumulate the movement delta for the current finger
+				accumulated_delta_x_ += delta_x;
+				accumulated_delta_y_ += delta_y;
+				valid_touches++;
 			}
+		}
 
-			// If there is more than one finger movement, use the average delta
-			if (valid_touch_movements > 1)
-			{
-				total_delta_x /= static_cast<double>(valid_touch_movements);
-				total_delta_y /= static_cast<double>(valid_touch_movements);
-			}
+		// Centroid calculation
+		if (valid_touches > 0) {
+			accumulated_delta_x_ /= static_cast<double>(valid_touches);
+			accumulated_delta_y_ /= static_cast<double>(valid_touches);
+		}
 
-			// Apply movement acceleration using a logarithmic function
-			const double movement_mag = std::sqrt(total_delta_x * total_delta_x + total_delta_y * total_delta_y);
-			const double factor = std::log(movement_mag + 1) / ACCELERATION_FACTOR;
+		// Apply movement acceleration using a logarithmic function
+		const double movement_mag = std::sqrt(accumulated_delta_x_ * accumulated_delta_x_ + accumulated_delta_y_ * accumulated_delta_y_);
+		const double factor = std::log2(movement_mag + 1) / ACCELERATION_FACTOR;
 
-			total_delta_x = std::round(total_delta_x * factor);
-			total_delta_y = std::round(total_delta_y * factor);
+		// Accumulate the total deltas when the accumulated deltas exceed a threshold
+		if (movement_mag >= 1.0)
+		{
+			total_delta_x = static_cast<int>(accumulated_delta_x_ * factor);
+			total_delta_y = static_cast<int>(accumulated_delta_y_ * factor);
 		}
 
 		// Move the mouse pointer based on the calculated vector
-		MoveCursor(static_cast<int>(total_delta_x), static_cast<int>(total_delta_y));
+		MoveCursor(total_delta_x, total_delta_y);
+
+		accumulated_delta_x_ -= total_delta_x;
+		accumulated_delta_y_ -= total_delta_y;
 
 		if (!is_dragging_)
 			StartDragging();
 	}
+
 
 	/**
 	 * \brief Retrieves touchpad input data from a raw input handle.

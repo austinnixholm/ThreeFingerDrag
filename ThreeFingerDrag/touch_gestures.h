@@ -103,6 +103,8 @@ namespace Gestures
 
 		int gesture_frames_skipped_ = 0;
 		double precision_touch_cursor_speed_ = 0.5;
+		double accumulated_delta_x_ = 0;
+		double accumulated_delta_y_ = 0;
 		bool is_dragging_ = false;
 	};
 }
