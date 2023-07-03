@@ -5,6 +5,7 @@
 namespace
 {
 	constexpr auto NUM_SKIPPED_FRAMES = 3;
+	constexpr auto NUM_TOUCH_CONTACTS_REQUIRED = 3;
 	constexpr auto INACTIVITY_THRESHOLD_MS = 50;
 	constexpr auto ACCELERATION_FACTOR = 20.0;
 
@@ -28,7 +29,7 @@ namespace Gestures
 			TouchInputData data = RetrieveTouchData(hRawInputHandle);
 
 			// Three finger drag
-			if (data.contact_count == 3)
+			if (data.contact_count == NUM_TOUCH_CONTACTS_REQUIRED)
 			{
 				const std::chrono::time_point<std::chrono::steady_clock> now =
 					std::chrono::high_resolution_clock::now();
@@ -63,14 +64,24 @@ namespace Gestures
 
 	void GestureProcessor::MoveCursor(const int delta_x, const int delta_y) const
 	{
+		// Calculate the scaling factor which is the ratio of precision touch cursor speed to mouse cursor speed. 
+		// To avoid division by zero, we replace mouse_cursor_speed_ with 1 when it's 0.
+		const float scaling_factor = (precision_touch_cursor_speed_ / (mouse_cursor_speed_ > 0 ? mouse_cursor_speed_ : 1));
+
+		// Apply a non-linear transformation to the scaling by squaring it. This will scale cursor movements less when mouse speed is low and more when mouse speed is high.
+		const float non_linear_scaling_factor = scaling_factor * scaling_factor;
+
+		// Prepares an INPUT structure for the SendInput function to cause a relative mouse move.
 		INPUT input;
 		input.type = INPUT_MOUSE;
-		input.mi.dx = delta_x;
-		input.mi.dy = delta_y;
-		input.mi.mouseData = 0;
-		input.mi.dwFlags = MOUSEEVENTF_MOVE;
-		input.mi.time = 0;
-		input.mi.dwExtraInfo = 0;
+		input.mi.dx = static_cast<int>(delta_x * non_linear_scaling_factor); // The mouse movement along x-axis.
+		input.mi.dy = static_cast<int>(delta_y * non_linear_scaling_factor); // The mouse movement along y-axis.
+		input.mi.mouseData = 0; // No additional mouse data like wheel movement.
+		input.mi.dwFlags = MOUSEEVENTF_MOVE; // Indicates that this input causes a mouse move.
+		input.mi.time = 0; // System will provide the timestamp.
+		input.mi.dwExtraInfo = 0;  // No extra info.
+
+		// Asynchronously call the SendInput function to cause the cursor movement. 
 		auto a = std::async(std::launch::async, SendInput, 1, &input, sizeof(INPUT));
 	}
 
@@ -91,27 +102,6 @@ namespace Gestures
 		auto a = std::async(std::launch::async, [this] { SimulateClick(MOUSEEVENTF_LEFTUP); });
 		is_dragging_ = false;
 		gesture_frames_skipped_ = 0;
-	}
-
-	void GestureProcessor::SetCursorSpeed(const double speed)
-	{
-		precision_touch_cursor_speed_ = speed;
-	}
-
-	bool GestureProcessor::IsDragging() const
-	{
-		return is_dragging_;
-	}
-
-	void GestureProcessor::CheckDragInactivity()
-	{
-		const std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::high_resolution_clock::now();
-		const std::chrono::duration<float> duration = now - last_gesture_;
-		const float ms_since_last = duration.count() * 1000.0f;
-
-		// Sends mouse up event when inactivity occurs
-		if (ms_since_last > INACTIVITY_THRESHOLD_MS)
-			StopDragging();
 	}
 
 	/**
@@ -337,5 +327,31 @@ namespace Gestures
 		data.scan_time = scan_time;
 		data.contact_count = contact_count;
 		return data;
+	}
+
+	void GestureProcessor::SetTouchSpeed(const double speed)
+	{
+		precision_touch_cursor_speed_ = speed;
+	}
+
+	void GestureProcessor::SetMouseSpeed(const double speed)
+	{
+		mouse_cursor_speed_ = speed;
+	}
+
+	bool GestureProcessor::IsDragging() const
+	{
+		return is_dragging_;
+	}
+
+	void GestureProcessor::CheckDragInactivity()
+	{
+		const std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::high_resolution_clock::now();
+		const std::chrono::duration<float> duration = now - last_gesture_;
+		const float ms_since_last = duration.count() * 1000.0f;
+
+		// Sends mouse up event when inactivity occurs
+		if (ms_since_last > INACTIVITY_THRESHOLD_MS)
+			StopDragging();
 	}
 }

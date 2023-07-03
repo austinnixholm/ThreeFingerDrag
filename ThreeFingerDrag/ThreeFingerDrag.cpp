@@ -8,8 +8,8 @@ namespace
 {
 	constexpr auto STARTUP_REGISTRY_KEY = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
 	constexpr auto PROGRAM_NAME = L"ThreeFingerDrag";
-	constexpr auto UPDATE_SETTINGS_PERIOD_MS = std::chrono::milliseconds(3000);
-	constexpr auto TOUCH_ACTIVITY_PERIOD_MS = std::chrono::milliseconds(75);
+	constexpr auto UPDATE_SETTINGS_PERIOD_MS = std::chrono::milliseconds(2000);
+	constexpr auto TOUCH_ACTIVITY_PERIOD_MS = std::chrono::milliseconds(50);
 	constexpr auto MAX_LOAD_STRING_LENGTH = 100;
 	constexpr auto QUIT_MENU_ITEM_ID = 1;
 	constexpr auto CREATE_TASK_MENU_ITEM_ID = 2;
@@ -38,6 +38,7 @@ void CreateTrayMenu(HWND hWnd);
 void RemoveStartupRegistryKey();
 void AddStartupRegistryKey();
 void ReadPrecisionTouchPadInfo();
+void ReadCursorSpeed();
 void StartPeriodicUpdateThreads();
 void HandleUncaughtExceptions();
 
@@ -261,6 +262,7 @@ void StartPeriodicUpdateThreads()
 		{
 			std::this_thread::sleep_for(UPDATE_SETTINGS_PERIOD_MS);
 			ReadPrecisionTouchPadInfo();
+			ReadCursorSpeed();
 		}
 	});
 
@@ -279,11 +281,11 @@ void StartPeriodicUpdateThreads()
 }
 
 /**
- * \brief Reads and updates cursor speed information from the Precision Touchpad registry.
+ * \brief Reads and updates touchpad cursor speed information from the Precision Touchpad registry.
  *
  * This method opens the Precision Touchpad registry key, reads the cursor speed value,
  * and updates the internal cursor speed value used by the program. The cursor speed
- * value is scaled from the range of [0, 20] to [0.0, 1.0] to match the range used by
+ * value is scaled from the initial range of [0, 20] to [0.0, 1.0] to match the range used by
  * the gesture movement calculation. 
  */
 void ReadPrecisionTouchPadInfo()
@@ -299,9 +301,9 @@ void ReadPrecisionTouchPadInfo()
 	}
 
 	// Read the cursor speed value from the registry
-	DWORD cursor_speed = 0;
+	DWORD touch_speed = 0;
 	DWORD data_size = sizeof(DWORD);
-	result = RegQueryValueEx(touch_pad_key, L"CursorSpeed", nullptr, nullptr, reinterpret_cast<LPBYTE>(&cursor_speed),
+	result = RegQueryValueEx(touch_pad_key, L"CursorSpeed", nullptr, nullptr, reinterpret_cast<LPBYTE>(&touch_speed),
 	                         &data_size);
 	if (result != ERROR_SUCCESS)
 	{
@@ -310,7 +312,27 @@ void ReadPrecisionTouchPadInfo()
 		return;
 	}
 	// Changes value from range [0, 20] to range [0.0 -> 1.0]
-	gesture_processor.SetCursorSpeed(cursor_speed * 5 / 100.0f);
+	gesture_processor.SetTouchSpeed(touch_speed * 5 / 100.0f);
+}
+
+/**
+ * \brief Reads and updates mouse cursor speed information from Windows settings.
+ *
+ * The cursor speed value is scaled from the initial range of [0, 20] to [0.0, 1.0] 
+ * to match the range used by the gesture movement calculation.
+ */
+void ReadCursorSpeed() 
+{
+	int mouse_speed;
+	BOOL result = SystemParametersInfo(SPI_GETMOUSESPEED, 0, &mouse_speed, 0);
+
+	if (!result) {
+		ERROR("Failed to read cursor speed from system.");
+		return;
+	}
+
+	// Changes value from range [0, 20] to range [0.0 -> 1.0]
+	gesture_processor.SetMouseSpeed(mouse_speed * 5 / 100.0f);
 }
 
 /**

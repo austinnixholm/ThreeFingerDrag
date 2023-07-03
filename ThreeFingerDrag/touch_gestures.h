@@ -36,10 +36,16 @@ namespace Gestures
 		void ParseRawTouchData(LPARAM lParam);
 
 		/**
-		 * @brief Function to set the speed of the cursor movement.
+		 * @brief Function to set the speed of the windows touchpad cursor speed.
+		 * @param speed The new speed to set for the touchpad.
+		 */
+		void SetTouchSpeed(double speed);
+
+		/**
+		 * @brief Function to set the speed of the windows mouse cursor speed.
 		 * @param speed The new speed to set for the cursor.
 		 */
-		void SetCursorSpeed(double speed);
+		void SetMouseSpeed(double speed);
 
 		/**
 		 * \brief Checks if there has been no drag activity for a while.
@@ -103,6 +109,7 @@ namespace Gestures
 
 		int gesture_frames_skipped_ = 0;
 		double precision_touch_cursor_speed_ = 0.5;
+		double mouse_cursor_speed_ = 0.5;
 		double accumulated_delta_x_ = 0;
 		double accumulated_delta_y_ = 0;
 		bool is_dragging_ = false;
