@@ -7,7 +7,7 @@ namespace
 	constexpr auto NUM_SKIPPED_FRAMES = 3;
 	constexpr auto NUM_TOUCH_CONTACTS_REQUIRED = 3;
 	constexpr auto INACTIVITY_THRESHOLD_MS = 50;
-	constexpr auto ACCELERATION_FACTOR = 20.0;
+	constexpr auto ACCELERATION_FACTOR = 25.0;
 
 	constexpr auto INIT_VALUE = 65535;
 	constexpr auto USAGE_PAGE_DIGITIZER_VALUES = 0x01;
@@ -42,7 +42,7 @@ namespace Gestures
 			}
 
 			// Reset if an ongoing drag gesture was interrupted (ie: finger lifted)
-			if (!previous_data_.can_perform_gesture || !is_dragging_ || data.contact_count >= 3)
+			if (!previous_data_.can_perform_gesture || !is_dragging_ || data.contact_count >= NUM_TOUCH_CONTACTS_REQUIRED)
 				return;
 			StopDragging();
 			data.contacts.clear();
@@ -143,41 +143,38 @@ namespace Gestures
 			const double x_diff = contact.x - previous_contact.x;
 			const double y_diff = contact.y - previous_contact.y;
 
-			const double delta_x = x_diff + x_diff * precision_touch_cursor_speed_;
-			const double delta_y = y_diff + y_diff * precision_touch_cursor_speed_;
-
 			// Check if any movement was present since the last received raw input
-			if (std::abs(delta_x) > 0 || std::abs(delta_y) > 0)
+			if (std::abs(x_diff) > 0 || std::abs(y_diff) > 0)
 			{
 				// Accumulate the movement delta for the current finger
-				accumulated_delta_x_ += delta_x;
-				accumulated_delta_y_ += delta_y;
+				accumulated_delta_x_ += x_diff;
+				accumulated_delta_y_ += y_diff;
 				valid_touches++;
 			}
 		}
 
+		if (valid_touches < 1) 
+			return;
+
 		// Centroid calculation
-		if (valid_touches > 0) {
-			accumulated_delta_x_ /= static_cast<double>(valid_touches);
-			accumulated_delta_y_ /= static_cast<double>(valid_touches);
-		}
+		accumulated_delta_x_ /= static_cast<double>(valid_touches);
+		accumulated_delta_y_ /= static_cast<double>(valid_touches);
 
-		// Apply movement acceleration using a logarithmic function
+		// Apply movement acceleration using a logarithmic function 
 		const double movement_mag = std::sqrt(accumulated_delta_x_ * accumulated_delta_x_ + accumulated_delta_y_ * accumulated_delta_y_);
-		const double factor = std::log2(movement_mag + 1) / ACCELERATION_FACTOR;
 
-		// Accumulate the total deltas when the accumulated deltas exceed a threshold
-		if (movement_mag >= 1.0)
-		{
-			total_delta_x = static_cast<int>(accumulated_delta_x_ * factor);
-			total_delta_y = static_cast<int>(accumulated_delta_y_ * factor);
+		// Apply the log function
+		const double factor = (std::log2(movement_mag + 1) / ACCELERATION_FACTOR) * (1 + precision_touch_cursor_speed_);
+		total_delta_x = static_cast<int>(accumulated_delta_x_ * factor);
+		total_delta_y = static_cast<int>(accumulated_delta_y_ * factor);
+
+		if (std::abs(total_delta_x) > 0 || std::abs(total_delta_y) > 0) {
+			// Move the mouse pointer based on the calculated vector
+			MoveCursor(total_delta_x, total_delta_y);
+
+			accumulated_delta_x_ -= total_delta_x;
+			accumulated_delta_y_ -= total_delta_y;
 		}
-
-		// Move the mouse pointer based on the calculated vector
-		MoveCursor(total_delta_x, total_delta_y);
-
-		accumulated_delta_x_ -= total_delta_x;
-		accumulated_delta_y_ -= total_delta_y;
 
 		if (!is_dragging_)
 			StartDragging();
