@@ -16,7 +16,7 @@ namespace Application {
 
     constexpr int VERSION_MAJOR = 1;
     constexpr int VERSION_MINOR = 0;
-    constexpr int VERSION_PATCH = 4;
+    constexpr int VERSION_PATCH = 5;
 
     constexpr char VERSION_FILE_NAME[] = "version.txt";
 
