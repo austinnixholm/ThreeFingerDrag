@@ -39,6 +39,9 @@
     <ClInclude Include="wintoastlib.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="gui.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ThreeFingerDrag.cpp">

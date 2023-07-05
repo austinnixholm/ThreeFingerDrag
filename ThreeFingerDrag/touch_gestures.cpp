@@ -28,8 +28,11 @@ namespace Gestures
 			const auto hRawInputHandle = (HRAWINPUT)lParam;
 			TouchInputData data = RetrieveTouchData(hRawInputHandle);
 
+			const bool is_initial_drag = !is_dragging_ && data.contact_count >= NUM_TOUCH_CONTACTS_REQUIRED;
+			
+
 			// Three finger drag
-			if (data.contact_count == NUM_TOUCH_CONTACTS_REQUIRED)
+			if (data.contact_count == NUM_TOUCH_CONTACTS_REQUIRED || is_dragging_)
 			{
 				const std::chrono::time_point<std::chrono::steady_clock> now =
 					std::chrono::high_resolution_clock::now();
@@ -74,6 +77,7 @@ namespace Gestures
 		// Prepares an INPUT structure for the SendInput function to cause a relative mouse move.
 		INPUT input;
 		input.type = INPUT_MOUSE;
+
 		input.mi.dx = static_cast<int>(delta_x * non_linear_scaling_factor); // The mouse movement along x-axis.
 		input.mi.dy = static_cast<int>(delta_y * non_linear_scaling_factor); // The mouse movement along y-axis.
 		input.mi.mouseData = 0; // No additional mouse data like wheel movement.
@@ -131,7 +135,7 @@ namespace Gestures
 		int total_delta_x = 0;
 		int total_delta_y = 0;
 		int valid_touches = 0;
-		for (int i = 0; i < 3; i++)
+		for (int i = 0; i < NUM_TOUCH_CONTACTS_REQUIRED; i++)
 		{
 			const auto& contact = data.contacts[i];
 			const auto& previous_contact = previous_data_.contacts[i];
@@ -156,9 +160,11 @@ namespace Gestures
 		if (valid_touches < 1) 
 			return;
 
+		const double divisor = static_cast<double>(NUM_TOUCH_CONTACTS_REQUIRED);
+
 		// Centroid calculation
-		accumulated_delta_x_ /= static_cast<double>(valid_touches);
-		accumulated_delta_y_ /= static_cast<double>(valid_touches);
+		accumulated_delta_x_ /= divisor;
+		accumulated_delta_y_ /= divisor;
 
 		// Apply movement acceleration using a logarithmic function 
 		const double movement_mag = std::sqrt(accumulated_delta_x_ * accumulated_delta_x_ + accumulated_delta_y_ * accumulated_delta_y_);

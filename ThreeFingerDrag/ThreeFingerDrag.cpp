@@ -11,15 +11,19 @@ namespace
 	constexpr auto UPDATE_SETTINGS_PERIOD_MS = std::chrono::milliseconds(2000);
 	constexpr auto TOUCH_ACTIVITY_PERIOD_MS = std::chrono::milliseconds(50);
 	constexpr auto MAX_LOAD_STRING_LENGTH = 100;
+	constexpr auto SETTINGS_WINDOW_WIDTH = 300;
+	constexpr auto SETTINGS_WINDOW_HEIGHT = 250;
 	constexpr auto QUIT_MENU_ITEM_ID = 1;
 	constexpr auto CREATE_TASK_MENU_ITEM_ID = 2;
 	constexpr auto REMOVE_TASK_MENU_ITEM_ID = 3;
+	constexpr auto SENSITIVITY_MENU_ITEM_ID = 4;
 }
 
 // Global Variables
 
 HINSTANCE current_instance;
 HWND tool_window_handle; 
+HWND settings_window_handle;
 WCHAR title_bar_text[MAX_LOAD_STRING_LENGTH];
 WCHAR main_window_class_name[MAX_LOAD_STRING_LENGTH];
 NOTIFYICONDATA tray_icon_data;
@@ -41,6 +45,8 @@ void ReadPrecisionTouchPadInfo();
 void ReadCursorSpeed();
 void StartPeriodicUpdateThreads();
 void HandleUncaughtExceptions();
+void ShowSettingsWindow();
+void HideSettingsWindow();
 
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -189,6 +195,34 @@ BOOL InitInstance(const HINSTANCE hInstance, int nCmdShow)
 	const std::wstring w_title(title.begin(), title.end());
 	lstrcpy(tray_icon_data.szTip, w_title.c_str());
 
+
+	// Create the settings window
+	settings_window_handle = CreateWindowEx(
+		0,
+		main_window_class_name,
+		_T("Settings"),
+		WS_SYSMENU,
+		CW_USEDEFAULT, CW_USEDEFAULT,
+		SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT,
+		tool_window_handle,
+		NULL,
+		hInstance,
+		NULL
+	);
+
+	// Remove resizable border
+	LONG_PTR style = GetWindowLongPtr(settings_window_handle, GWL_STYLE);
+	style &= ~(WS_SIZEBOX | WS_MAXIMIZEBOX);
+	SetWindowLongPtr(settings_window_handle, GWL_STYLE, style);
+
+
+	if (settings_window_handle == NULL)
+	{
+		Popups::DisplayErrorMessage("Settings window creation failed!");
+		return FALSE;
+	}
+
+
 	Shell_NotifyIcon(NIM_ADD, &tray_icon_data);
 
 	return TRUE;
@@ -236,10 +270,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case REMOVE_TASK_MENU_ITEM_ID:
 				RemoveStartupRegistryKey();
 				break;
+			case SENSITIVITY_MENU_ITEM_ID:
+				ShowSettingsWindow();
+				break;
 			default:
 				return DefWindowProc(hWnd, message, wParam, lParam);
 			}
 		}
+		break;
+	case WM_CLOSE:
+		HideSettingsWindow();
 		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
@@ -362,6 +402,8 @@ void CreateTrayMenu(const HWND hWnd)
 		AppendMenu(hMenu, MF_STRING, CREATE_TASK_MENU_ITEM_ID, TEXT("Run on startup"));
 	}
 
+	AppendMenu(hMenu, MF_STRING, SENSITIVITY_MENU_ITEM_ID, TEXT("Settings"));
+
 	// Add a separator and the "Exit" menu item.
 	AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
 	AppendMenu(hMenu, MF_STRING, QUIT_MENU_ITEM_ID, TEXT("Exit"));
@@ -374,6 +416,26 @@ void CreateTrayMenu(const HWND hWnd)
 
 	PostMessage(hWnd, WM_NULL, 0, 0);
 	DestroyMenu(hMenu);
+}
+
+void ShowSettingsWindow() 
+{
+	RECT rectClient, rectWindow;
+	GetClientRect(settings_window_handle, &rectClient);
+	GetWindowRect(settings_window_handle, &rectWindow);
+	int posx, posy;
+	posx = GetSystemMetrics(SM_CXSCREEN) / 2 - (rectWindow.right - rectWindow.left) / 2;
+	posy = GetSystemMetrics(SM_CYSCREEN) / 2 - (rectWindow.bottom - rectWindow.top) / 2;
+	MoveWindow(settings_window_handle, posx, posy, rectClient.right - rectClient.left, rectClient.bottom - rectClient.top, TRUE);
+
+	// Show and update the window
+	ShowWindow(settings_window_handle, SW_SHOW);
+	UpdateWindow(settings_window_handle);
+}
+
+void HideSettingsWindow() {
+	ShowWindow(settings_window_handle, SW_HIDE);
+	UpdateWindow(settings_window_handle);
 }
 
 /**
