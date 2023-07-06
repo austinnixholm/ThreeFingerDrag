@@ -3,13 +3,12 @@
 
 # ![icon](https://i.ibb.co/JcnqD2W/png64x64-TFD.png)  ThreeFingerDrag
 
-Emulates the MacOS three finger drag functionality on your Windows precision touchpad. Simply install and run, no configuration required.
+Emulates the macOS three-finger-drag feature on your Windows precision touchpad. Simply install and run, minimal setup required.
 
 ## Features
 
-* Mimics the same speed as the user's current touchpad settings
-* Requires no additional configuration or fine-tuning of sensitivity
 * Lightweight and minimalistic design
+* Easily configurable 
 * Accessible menu through the system tray
 
 ## Usage
@@ -39,5 +38,7 @@ You can build the project using Visual Studio 2017 or newer.
 ## Credits
 
 * [mohabouje/WinToast][1] - A library for displaying toast notifications on Windows 8 and later.
+* [pulzed/mINI][2] - A library for manipulating INI files.
 
 [1]: https://github.com/mohabouje/WinToast
+[2]: https://github.com/pulzed/mINI/
