@@ -6,6 +6,19 @@
 
 namespace Gestures
 {
+	constexpr auto NUM_TOUCH_CONTACTS_REQUIRED = 3;
+	constexpr auto MIN_VALID_TOUCH_CONTACTS = 1;
+	constexpr auto INACTIVITY_THRESHOLD_MS = 50;
+
+	constexpr auto INIT_VALUE = 65535;
+	constexpr auto USAGE_PAGE_DIGITIZER_VALUES = 0x01;
+	constexpr auto USAGE_PAGE_DIGITIZER_INFO = 0x0D;
+	constexpr auto USAGE_DIGITIZER_SCAN_TIME = 0x56;
+	constexpr auto USAGE_DIGITIZER_CONTACT_COUNT = 0x54;
+	constexpr auto USAGE_DIGITIZER_CONTACT_ID = 0x51;
+	constexpr auto USAGE_DIGITIZER_X_COORDINATE = 0x30;
+	constexpr auto USAGE_DIGITIZER_Y_COORDINATE = 0x31;
+
 	struct TouchPoint
 	{
 		int contact_id;
@@ -34,6 +47,19 @@ namespace Gestures
 		 * @param lParam LPARAM containing the touch data.
 		 */
 		void ParseRawTouchData(LPARAM lParam);
+
+
+		/**
+		 * @brief Function to set the amount of skipped gesture frames.
+		 * @param speed The new amount of skipped frames.
+		 */
+		void SetSkippedFrameAmount(int amount);
+
+		/**
+		 * @brief Function to set the gesture speed of ThreeFingerDrag.
+		 * @param speed The new speed to set for the gesture.
+		 */
+		void SetGestureSpeed(double speed);
 
 		/**
 		 * @brief Function to set the speed of the windows touchpad cursor speed.
@@ -108,6 +134,8 @@ namespace Gestures
 		std::chrono::time_point<std::chrono::steady_clock> last_gesture_;
 
 		int gesture_frames_skipped_ = 0;
+		int skipped_frame_amount_ = 3;
+		double gesture_speed_ = 25.0;
 		double precision_touch_cursor_speed_ = 0.5;
 		double mouse_cursor_speed_ = 0.5;
 		double accumulated_delta_x_ = 0;

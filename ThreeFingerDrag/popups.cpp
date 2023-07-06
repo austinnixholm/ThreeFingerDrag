@@ -26,7 +26,7 @@ void Popups::DisplayErrorMessage(const std::string& message)
 	const std::wstring temp = std::wstring(message.begin(), message.end());
 	const LPCWSTR wstr_message = temp.c_str();
 
-	MessageBox(nullptr, wstr_message, TEXT("Three Finger Drag"), MB_OK | MB_ICONERROR);
+	MessageBox(nullptr, wstr_message, TEXT("Three Finger Drag"), MB_OK | MB_ICONERROR | MB_TOPMOST);
 	ERROR(message);
 }
 
@@ -41,7 +41,7 @@ void Popups::DisplayInfoMessage(const std::string& message)
 	const std::wstring temp = std::wstring(message.begin(), message.end());
 	const LPCWSTR wstr_message = temp.c_str();
 
-	MessageBox(nullptr, wstr_message, TEXT("Three Finger Drag"), MB_OK | MB_ICONINFORMATION);
+	MessageBox(nullptr, wstr_message, TEXT("Three Finger Drag"), MB_OK | MB_ICONINFORMATION | MB_TOPMOST);
 	INFO(message);
 }
 
@@ -56,7 +56,22 @@ bool Popups::DisplayPrompt(const std::string& message, const std::string& title)
 	const std::wstring temp_message = std::wstring(message.begin(), message.end());
 	const std::wstring temp_title = std::wstring(title.begin(), title.end());
 
-	const int response = MessageBox(nullptr, temp_message.c_str(), temp_title.c_str(), MB_YESNO | MB_ICONQUESTION);
+	const int response = MessageBox(nullptr, temp_message.c_str(), temp_title.c_str(), MB_YESNO | MB_ICONQUESTION | MB_TOPMOST);
+	return response == IDYES;
+}
+
+/**
+ * \brief Displays a message box popup with yes and no buttons and returns true if "yes" is clicked.
+ * \param message The message to display.
+ * \param title The title of the message box.
+ * \return true if "yes" is clicked, false otherwise.
+ */
+bool Popups::DisplayWarningPrompt(const std::string& message, const std::string& title)
+{
+	const std::wstring temp_message = std::wstring(message.begin(), message.end());
+	const std::wstring temp_title = std::wstring(title.begin(), title.end());
+
+	const int response = MessageBox(nullptr, temp_message.c_str(), temp_title.c_str(), MB_YESNO | MB_ICONWARNING | MB_TOPMOST);
 	return response == IDYES;
 }
 
