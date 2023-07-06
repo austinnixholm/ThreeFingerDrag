@@ -1,23 +1,5 @@
 #include "touch_gestures.h"
-
 #include <future>
-
-namespace
-{
-	constexpr auto NUM_SKIPPED_FRAMES = 3;
-	constexpr auto NUM_TOUCH_CONTACTS_REQUIRED = 3;
-	constexpr auto INACTIVITY_THRESHOLD_MS = 50;
-	constexpr auto ACCELERATION_FACTOR = 15.0;
-
-	constexpr auto INIT_VALUE = 65535;
-	constexpr auto USAGE_PAGE_DIGITIZER_VALUES = 0x01;
-	constexpr auto USAGE_PAGE_DIGITIZER_INFO = 0x0D;
-	constexpr auto USAGE_DIGITIZER_SCAN_TIME = 0x56;
-	constexpr auto USAGE_DIGITIZER_CONTACT_COUNT = 0x54;
-	constexpr auto USAGE_DIGITIZER_CONTACT_ID = 0x51;
-	constexpr auto USAGE_DIGITIZER_X_COORDINATE = 0x30;
-	constexpr auto USAGE_DIGITIZER_Y_COORDINATE = 0x31;
-}
 
 namespace Gestures
 {
@@ -28,8 +10,10 @@ namespace Gestures
 			const auto hRawInputHandle = (HRAWINPUT)lParam;
 			TouchInputData data = RetrieveTouchData(hRawInputHandle);
 
+			const bool is_initial_drag = !is_dragging_ && data.contact_count >= NUM_TOUCH_CONTACTS_REQUIRED;
+
 			// Three finger drag
-			if (data.contact_count == NUM_TOUCH_CONTACTS_REQUIRED)
+			if (data.contact_count == NUM_TOUCH_CONTACTS_REQUIRED || is_dragging_)
 			{
 				const std::chrono::time_point<std::chrono::steady_clock> now =
 					std::chrono::high_resolution_clock::now();
@@ -42,7 +26,7 @@ namespace Gestures
 			}
 
 			// Reset if an ongoing drag gesture was interrupted (ie: finger lifted)
-			if (!previous_data_.can_perform_gesture || !is_dragging_ || data.contact_count >= 3)
+			if (!previous_data_.can_perform_gesture || !is_dragging_ || data.contact_count >= NUM_TOUCH_CONTACTS_REQUIRED)
 				return;
 			StopDragging();
 			data.contacts.clear();
@@ -74,6 +58,7 @@ namespace Gestures
 		// Prepares an INPUT structure for the SendInput function to cause a relative mouse move.
 		INPUT input;
 		input.type = INPUT_MOUSE;
+
 		input.mi.dx = static_cast<int>(delta_x * non_linear_scaling_factor); // The mouse movement along x-axis.
 		input.mi.dy = static_cast<int>(delta_y * non_linear_scaling_factor); // The mouse movement along y-axis.
 		input.mi.mouseData = 0; // No additional mouse data like wheel movement.
@@ -110,10 +95,14 @@ namespace Gestures
 	 * \param current_time  The current time point.
 	 */
 	void GestureProcessor::PerformGestureMovement(const TouchInputData& data,
-	                                        const std::chrono::time_point<std::chrono::steady_clock>& current_time)
+		const std::chrono::time_point<std::chrono::steady_clock>& current_time)
 	{
 		// Ignore initial frames of movement. This prevents unwanted/overlapped behavior in the beginning of the gesture.
-		if (++gesture_frames_skipped_ <= NUM_SKIPPED_FRAMES)
+		if (++gesture_frames_skipped_ <= skipped_frame_amount_)
+			return;
+
+		// No previous data to compare to. [ will 
+		if (previous_data_.contacts.empty())
 			return;
 
 		// Calculate the time elapsed since the last touchpad contact
@@ -124,59 +113,58 @@ namespace Gestures
 		if (ms_since_last >= INACTIVITY_THRESHOLD_MS)
 			return;
 
-		// Initialize the change in x and y coordinates of the mouse pointer
-		double total_delta_x = 0;
-		double total_delta_y = 0;
-
-		if (!previous_data_.contacts.empty())
+		// Initialize the change in delta_x and delta_y coordinates of the mouse pointer
+		int total_delta_x = 0;
+		int total_delta_y = 0;
+		int valid_touches = 0;
+		for (int i = 0; i < NUM_TOUCH_CONTACTS_REQUIRED; i++)
 		{
-			// Calculate the movement delta for each finger and add them up, keep track of how many fingers have moved
-			int valid_touch_movements = 0;
-			for (int i = 0; i < 3; i++)
+			const auto& contact = data.contacts[i];
+			const auto& previous_contact = previous_data_.contacts[i];
+
+			if (contact.contact_id != previous_contact.contact_id)
+				continue;
+
+			// Calculate the movement delta for the current finger
+			const double x_diff = contact.x - previous_contact.x;
+			const double y_diff = contact.y - previous_contact.y;
+
+			// Check if any movement was present since the last received raw input
+			if (std::abs(x_diff) > 0 || std::abs(y_diff) > 0)
 			{
-				const auto& contact = data.contacts[i];
-				const auto& previous_contact = previous_data_.contacts[i];
-
-				if (contact.contact_id != previous_contact.contact_id)
-					continue;
-
-				// Calculate the movement delta for the current finger
-				const double x_diff = contact.x - previous_contact.x;
-				const double y_diff = contact.y - previous_contact.y;
-
-				const double delta_x = x_diff + x_diff * precision_touch_cursor_speed_;
-				const double delta_y = y_diff + y_diff * precision_touch_cursor_speed_;
-
-				// Check if any movement was present since the last received raw input
-				if (std::abs(delta_x) > 0 || std::abs(delta_y) > 0)
-					valid_touch_movements++;
-
-				// Add the movement delta for the current finger to the total
-				total_delta_x += delta_x;
-				total_delta_y += delta_y;
+				// Accumulate the movement delta for the current finger
+				accumulated_delta_x_ += x_diff;
+				accumulated_delta_y_ += y_diff;
+				valid_touches++;
 			}
-
-			// If there is more than one finger movement, use the average delta
-			if (valid_touch_movements > 1)
-			{
-				total_delta_x /= static_cast<double>(valid_touch_movements);
-				total_delta_y /= static_cast<double>(valid_touch_movements);
-			}
-
-			// Apply movement acceleration using a logarithmic function
-			const double movement_mag = std::sqrt(total_delta_x * total_delta_x + total_delta_y * total_delta_y);
-			const double factor = std::log(movement_mag + 1) / ACCELERATION_FACTOR;
-
-			total_delta_x = std::round(total_delta_x * factor);
-			total_delta_y = std::round(total_delta_y * factor);
 		}
 
+		if (valid_touches < MIN_VALID_TOUCH_CONTACTS)
+			return;
+
+		// Centroid calculation
+		const double divisor = static_cast<double>(NUM_TOUCH_CONTACTS_REQUIRED);
+
+		accumulated_delta_x_ /= divisor;
+		accumulated_delta_y_ /= divisor;
+
+		// Apply movement acceleration using a logarithmic function 
+		const double movement_mag = std::sqrt(accumulated_delta_x_ * accumulated_delta_x_ + accumulated_delta_y_ * accumulated_delta_y_);
+		const double factor = (std::log2(movement_mag + 1) / gesture_speed_) * (1 + precision_touch_cursor_speed_);
+		
+		total_delta_x = static_cast<int>(accumulated_delta_x_ * factor);
+		total_delta_y = static_cast<int>(accumulated_delta_y_ * factor);
+
 		// Move the mouse pointer based on the calculated vector
-		MoveCursor(static_cast<int>(total_delta_x), static_cast<int>(total_delta_y));
+		MoveCursor(total_delta_x, total_delta_y);
+
+		accumulated_delta_x_ -= total_delta_x;
+		accumulated_delta_y_ -= total_delta_y;
 
 		if (!is_dragging_)
 			StartDragging();
 	}
+
 
 	/**
 	 * \brief Retrieves touchpad input data from a raw input handle.
@@ -323,6 +311,27 @@ namespace Gestures
 		return data;
 	}
 
+	void GestureProcessor::CheckDragInactivity()
+	{
+		const std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::high_resolution_clock::now();
+		const std::chrono::duration<float> duration = now - last_gesture_;
+		const float ms_since_last = duration.count() * 1000.0f;
+
+		// Sends mouse up event when inactivity occurs
+		if (ms_since_last > INACTIVITY_THRESHOLD_MS)
+			StopDragging();
+	}
+
+	void GestureProcessor::SetSkippedFrameAmount(int amount) {
+		skipped_frame_amount_ = amount;
+	}
+
+	void GestureProcessor::SetGestureSpeed(const double speed)
+	{
+		// Normalize the value for the logarithmic calculation.
+		gesture_speed_ = (100 - speed + 3);
+	}
+
 	void GestureProcessor::SetTouchSpeed(const double speed)
 	{
 		precision_touch_cursor_speed_ = speed;
@@ -336,16 +345,5 @@ namespace Gestures
 	bool GestureProcessor::IsDragging() const
 	{
 		return is_dragging_;
-	}
-
-	void GestureProcessor::CheckDragInactivity()
-	{
-		const std::chrono::time_point<std::chrono::steady_clock> now = std::chrono::high_resolution_clock::now();
-		const std::chrono::duration<float> duration = now - last_gesture_;
-		const float ms_since_last = duration.count() * 1000.0f;
-
-		// Sends mouse up event when inactivity occurs
-		if (ms_since_last > INACTIVITY_THRESHOLD_MS)
-			StopDragging();
 	}
 }

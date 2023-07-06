@@ -1,5 +1,5 @@
 #define MyAppName "ThreeFingerDrag"
-#define MyAppVersion "1.0.5"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "Austin Nixholm"
 #define MyAppURL "https://github.com/austinnixholm/ThreeFingerDrag"
 #define MyAppExeName "ThreeFingerDrag.exe"

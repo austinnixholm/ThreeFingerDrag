@@ -16,6 +16,7 @@ public:
     static void DisplayErrorMessage(const std::string& message);
     static void DisplayInfoMessage(const std::string& message);
     static bool DisplayPrompt(const std::string& message, const std::string& title);
+    static bool DisplayWarningPrompt(const std::string& message, const std::string& title);
     static void ShowToastNotification(const std::wstring& message, const std::wstring& title);
 };
 
