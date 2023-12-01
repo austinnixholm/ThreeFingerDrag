@@ -48,6 +48,18 @@
     <ClInclude Include="globalconfig.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="event\events.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="event\touch_events.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="touch_data.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="touch_listeners.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ThreeFingerDrag.cpp">

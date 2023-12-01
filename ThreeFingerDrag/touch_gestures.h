@@ -1,5 +1,6 @@
 #pragma once
 #include "framework.h"
+#include "touch_listeners.h"
 #include <mutex>
 #include <vector>
 #include <chrono>
@@ -11,6 +12,7 @@ namespace Gestures
 	constexpr auto INACTIVITY_THRESHOLD_MS = 50;
 
 	constexpr auto INIT_VALUE = 65535;
+	constexpr auto CONTACT_ID_MAXIMUM = 64;
 	constexpr auto USAGE_PAGE_DIGITIZER_VALUES = 0x01;
 	constexpr auto USAGE_PAGE_DIGITIZER_INFO = 0x0D;
 	constexpr auto USAGE_DIGITIZER_SCAN_TIME = 0x56;
@@ -19,20 +21,6 @@ namespace Gestures
 	constexpr auto USAGE_DIGITIZER_X_COORDINATE = 0x30;
 	constexpr auto USAGE_DIGITIZER_Y_COORDINATE = 0x31;
 
-	struct TouchPoint
-	{
-		int contact_id;
-		int x;
-		int y;
-	};
-
-	struct TouchInputData
-	{
-		std::vector<TouchPoint> contacts;
-		int scan_time = 0;
-		int contact_count = 0;
-		bool can_perform_gesture = false;
-	};
 
 	/**
 	 * \brief Class that processes touch input data to enable three-finger drag functionality.
@@ -40,7 +28,7 @@ namespace Gestures
 	class GestureProcessor
 	{
 	public:
-		GestureProcessor() = default;
+		GestureProcessor();
 
 		/**
 		 * @brief Parses raw touch data received by the touch pad.
@@ -91,13 +79,14 @@ namespace Gestures
 		GestureProcessor& operator=(GestureProcessor&& other) noexcept = delete; // Disallow move assignment
 		~GestureProcessor() = default; // Default destructor
 
+
 	private:
 		/**
 		 * @brief Retrieves touch data from the given raw input handle.
 		 * @param hRawInputHandle Handle to the raw input data.
 		 * @return The retrieved touch data.
 		 */
-		static TouchInputData RetrieveTouchData(HRAWINPUT hRawInputHandle);
+		TouchInputData RetrieveTouchData(HRAWINPUT hRawInputHandle);
 
 		/**
 		 * \brief Starts the dragging process, performs left mouse down.
@@ -130,6 +119,16 @@ namespace Gestures
 		void PerformGestureMovement(const TouchInputData& data,
 		                            const std::chrono::time_point<std::chrono::steady_clock>& current_time);
 
+		bool TouchPointsAreValid(const std::vector<TouchPoint>& points);
+		
+		TouchActivityListener activityListener;
+		TouchUpListener touchUpListener;
+		TouchDownListener touchDownListener;
+
+		Event<TouchActivityEventArgs> touchActivityEvent;
+		Event<TouchDownEventArgs> touchDownEvent;
+		Event<TouchUpEventArgs> touchUpEvent;
+
 		TouchInputData previous_data_; 
 		std::chrono::time_point<std::chrono::steady_clock> last_gesture_;
 
@@ -142,4 +141,6 @@ namespace Gestures
 		double accumulated_delta_y_ = 0;
 		bool is_dragging_ = false;
 	};
+
+
 }

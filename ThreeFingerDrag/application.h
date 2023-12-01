@@ -73,7 +73,6 @@ namespace Application {
         file_path += "\\";
         file_path += "\\config.ini";
 
-
         mINI::INIFile file(file_path);
         mINI::INIStructure ini;
 

@@ -137,6 +137,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="application.h" />
+    <ClInclude Include="event\events.h" />
+    <ClInclude Include="event\touch_events.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="globalconfig.h" />
     <ClInclude Include="ini.h" />
@@ -145,7 +147,9 @@
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="ThreeFingerDrag.h" />
+    <ClInclude Include="touch_data.h" />
     <ClInclude Include="touch_gestures.h" />
+    <ClInclude Include="touch_listeners.h" />
     <ClInclude Include="wintoastlib.h" />
   </ItemGroup>
   <ItemGroup>

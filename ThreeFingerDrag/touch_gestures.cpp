@@ -1,8 +1,16 @@
 #include "touch_gestures.h"
+#include "popups.h"
 #include <future>
 
 namespace Gestures
 {
+
+	GestureProcessor::GestureProcessor() {
+		touchActivityEvent.AddListener(std::bind(&TouchActivityListener::OnTouchActivity, &activityListener, std::placeholders::_1));
+		touchUpEvent.AddListener(std::bind(&TouchUpListener::OnTouchUp, &touchUpListener, std::placeholders::_1));
+		touchDownEvent.AddListener(std::bind(&TouchDownListener::OnTouchDown, &touchDownListener, std::placeholders::_1));
+	}
+
 	void GestureProcessor::ParseRawTouchData(const LPARAM lParam)
 	{
 		auto a = std::async(std::launch::async, [&]
@@ -244,13 +252,14 @@ namespace Gestures
 
 		// Initialize vector to hold touchpad contact data.
 		std::vector<TouchPoint> contacts;
+		std::vector<int> ids;
 
 		// Loop through input value caps and retrieve touchpad data.
 		ULONG value;
 		UINT scan_time = 0;
 		UINT contact_count = 0;
 
-		TouchPoint contact{INIT_VALUE, INIT_VALUE, INIT_VALUE};
+		TouchPoint contact{INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
 		for (USHORT i = 0; i < length; i++)
 		{
 			if (HidP_GetUsageValue(
@@ -266,6 +275,7 @@ namespace Gestures
 			{
 				continue;
 			}
+
 			const USAGE usage_page = value_caps[i].UsagePage;
 			const USAGE usage = value_caps[i].Range.UsageMin;
 			switch (value_caps[i].LinkCollection)
@@ -295,8 +305,36 @@ namespace Gestures
 			// If all contact fields are populated, add contact to list and reset fields.
 			if (contact.contact_id != INIT_VALUE && contact.x != INIT_VALUE && contact.y != INIT_VALUE)
 			{
+				const ULONG maxNumButtons = HidP_MaxUsageListLength(HidP_Input, HID_USAGE_PAGE_DIGITIZER, pre_parsed_data);
+				USAGE* buttonUsageArray = (USAGE*)malloc(sizeof(USAGE) * maxNumButtons);
+				ULONG _maxNumButtons = maxNumButtons;
+
+				if (HidP_GetUsages(
+					HidP_Input, 
+					HID_USAGE_PAGE_DIGITIZER, 
+					value_caps[i].LinkCollection, 
+					buttonUsageArray, 
+					&_maxNumButtons, 
+					pre_parsed_data, 
+					(PCHAR)raw_input->data.hid.bRawData, 
+					raw_input->data.hid.dwSizeHid) == HIDP_STATUS_SUCCESS)
+				{
+					for (ULONG usageIdx = 0; usageIdx < maxNumButtons; usageIdx++)
+					{
+						// Determine if this contact point is on the touchpad surface
+						if (buttonUsageArray[usageIdx] == HID_USAGE_DIGITIZER_TIP_SWITCH)
+						{
+							contact.onSurface = true;
+							break;
+						}
+					}
+
+					free(buttonUsageArray);
+				}
+
 				contacts.emplace_back(contact);
-				contact = {INIT_VALUE, INIT_VALUE, INIT_VALUE};
+
+				contact = {INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
 			}
 		}
 		// Free allocated memory.
@@ -308,6 +346,19 @@ namespace Gestures
 		data.contacts = contacts;
 		data.scan_time = scan_time;
 		data.contact_count = contact_count;
+
+		// Fire touch up event if there are no valid contact points on the touchpad surface on this report
+		const bool previousHasContact = TouchPointsAreValid(previous_data_.contacts);
+		const bool hasContact = TouchPointsAreValid(contacts);
+		const auto time = std::chrono::high_resolution_clock::now();
+
+		// Interpret the touch movement into events. Send movement 
+		if (!hasContact) {
+			touchUpEvent.RaiseEvent(TouchUpEventArgs(time, &data));
+			return data;
+		} else if (!previousHasContact && hasContact) 
+			touchDownEvent.RaiseEvent(TouchDownEventArgs(time, &data));
+		touchActivityEvent.RaiseEvent(TouchActivityEventArgs(time, &data));
 		return data;
 	}
 
@@ -320,6 +371,11 @@ namespace Gestures
 		// Sends mouse up event when inactivity occurs
 		if (ms_since_last > INACTIVITY_THRESHOLD_MS)
 			StopDragging();
+	}
+
+	bool GestureProcessor::TouchPointsAreValid(const std::vector<TouchPoint>& points)
+	{
+		return std::any_of(points.begin(), points.end(), [](TouchPoint p) { return p.contact_id < CONTACT_ID_MAXIMUM && p.onSurface; });
 	}
 
 	void GestureProcessor::SetSkippedFrameAmount(int amount) {
