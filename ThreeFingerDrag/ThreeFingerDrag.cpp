@@ -57,7 +57,8 @@ LRESULT CALLBACK SettingsWndProc(HWND, UINT, WPARAM, LPARAM);
 
 void CreateTrayMenu(HWND hWnd);
 void ShowSettingsWindow();
-void AddStartupRegistryKey();
+void AddStartupTask();
+void RemoveStartupTask();
 void RemoveStartupRegistryKey();
 void ReadPrecisionTouchPadInfo();
 void ReadCursorSpeed();
@@ -223,9 +224,9 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 				case ID_RUN_ON_STARTUP_CHECKBOX:
 					// Run on startup checkbox clicked
 					if (SendMessage(GetDlgItem(hWnd, ID_RUN_ON_STARTUP_CHECKBOX), BM_GETCHECK, 0, 0) == BST_CHECKED) 
-						AddStartupRegistryKey();
+						AddStartupTask();
 					else 
-						RemoveStartupRegistryKey();
+						RemoveStartupTask();
 					break;
 			}
 			break;
@@ -433,7 +434,7 @@ void CreateTrayMenu(const HWND hWnd)
 void ShowSettingsWindow() 
 {
 	// Update run on startup checkbox
-	if (StartupRegistryKeyExists()) 
+	if (TaskScheduler::TaskExists("ThreeFingerDrag"))
 		SendMessage(settings_checkbox_hwnd, BM_SETCHECK, BST_CHECKED, 0);
 	else 
 		SendMessage(settings_checkbox_hwnd, BM_SETCHECK, BST_UNCHECKED, 0);
@@ -482,7 +483,7 @@ void StartPeriodicUpdateThreads()
 				const auto now = std::chrono::high_resolution_clock::now();
 				const std::chrono::duration<float> duration = now - config->GetCancellationTime();
 				const float ms_since_cancellation = duration.count() * 1000.0f;
-				if (ms_since_cancellation < CANCELLATION_TIME_MS) {
+				if (ms_since_cancellation < config->GetCancellationDelayMs()) {
 					continue;
 				}
 				Cursor::LeftMouseUp();
@@ -589,8 +590,37 @@ bool InitializeWindowsNotifications() {
 }
 
 /**
- * \brief Checks if the registry key for starting the program at system startup exists.
- * \return True if the registry key exists, false otherwise.
+ * \brief Adds the registry key for starting the program at system startup.
+ */
+void AddStartupTask()
+{
+	// Remove possible existing registry key from previous version of application
+	if (StartupRegistryKeyExists())
+		RemoveStartupRegistryKey();
+
+	if (TaskScheduler::CreateLoginTask("ThreeFingerDrag", Application::ExePath().u8string()))
+		Popups::DisplayInfoMessage("Startup task has been created successfully.");
+	else
+		Popups::DisplayErrorMessage("An error occurred while trying to create the login task.");
+}
+
+/**
+ * \brief Removes the registry key for starting the program at system startup. Displays a message box on success.
+ */
+void RemoveStartupTask()
+{
+	// Remove possible existing registry key from previous version of application
+	if (StartupRegistryKeyExists())
+		RemoveStartupRegistryKey();
+
+	TaskScheduler::DeleteTask("ThreeFingerDrag");
+	if (!TaskScheduler::TaskExists("ThreeFingerDrag"))
+		Popups::DisplayInfoMessage("Startup task has been removed successfully.");
+}
+
+
+/**
+ * \return True if the registry key for the startup program name exists.
  */
 bool StartupRegistryKeyExists()
 {
@@ -605,32 +635,6 @@ bool StartupRegistryKeyExists()
 }
 
 /**
- * \brief Adds the registry key for starting the program at system startup.
- */
-void AddStartupRegistryKey()
-{
-	HKEY hKey;
-	WCHAR app_path[MAX_PATH];
-	const DWORD path_len = GetModuleFileName(nullptr, app_path, MAX_PATH);
-	if (path_len == 0 || path_len == MAX_PATH)
-	{
-		ERROR("Could not retrieve the application path!");
-		return;
-	}
-	LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, STARTUP_REGISTRY_KEY, 0, KEY_WRITE, &hKey);
-	if (result != ERROR_SUCCESS)
-		return;
-	result = RegSetValueEx(hKey, PROGRAM_NAME, 0, REG_SZ, (BYTE*)app_path,
-	                       (DWORD)(wcslen(app_path) + 1) * sizeof(wchar_t));
-	if (result == ERROR_SUCCESS)
-		Popups::DisplayInfoMessage("Startup task has been created successfully.");
-	else
-		Popups::DisplayErrorMessage("An error occurred while trying to set the registry value.");
-
-	RegCloseKey(hKey);
-}
-
-/**
  * \brief Removes the registry key for starting the program at system startup. Displays a message box on success.
  */
 void RemoveStartupRegistryKey()
@@ -638,14 +642,8 @@ void RemoveStartupRegistryKey()
 	HKEY hKey;
 	LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, STARTUP_REGISTRY_KEY, 0, KEY_WRITE, &hKey);
 	if (result != ERROR_SUCCESS)
-	{
-		Popups::DisplayErrorMessage("Registry key could not be found.");
 		return;
-	}
-	result = RegDeleteValue(hKey, PROGRAM_NAME);
-	if (result == ERROR_SUCCESS)
-		Popups::DisplayInfoMessage("Startup task has been removed successfully.");
-
+	RegDeleteValue(hKey, PROGRAM_NAME);
 	RegCloseKey(hKey);
 }
 
@@ -680,7 +678,7 @@ void InitializeConfiguration() {
 void PromptUserForStartupPreference() {
 	bool result = Popups::DisplayPrompt("Would you like run ThreeFingerDrag on startup of Windows?", "ThreeFingerDrag");
 	if (result)
-		AddStartupRegistryKey();
+		AddStartupTask();
 	Popups::ShowToastNotification(L"You can access the program in the system tray.", L"Welcome to ThreeFingerDrag!");
 
 }

@@ -110,4 +110,12 @@ namespace Application {
             config->SetCancellationDelayMs(std::stof(config_section.get("cancellation_delay_ms")));
     }
 
+    std::filesystem::path ExePath()
+    {
+        wchar_t path[FILENAME_MAX] = { 0 };
+        GetModuleFileNameW(nullptr, path, FILENAME_MAX);
+        return std::filesystem::path(path);
+    }
+
+
 }

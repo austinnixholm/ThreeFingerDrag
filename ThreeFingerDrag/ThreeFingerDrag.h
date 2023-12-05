@@ -7,6 +7,7 @@
 
 #include "resource.h"
 #include "logging/logger.h"
+#include "task/task_scheduler.h"
 #include "application.h"
 #include "wintoastlib.h"
 #include "popups.h"
