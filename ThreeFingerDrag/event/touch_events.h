@@ -1,7 +1,7 @@
 #pragma once
 #include <chrono>
 #include "events.h"
-#include "../touch_data.h"
+#include "../data/touch_data.h"
 
 class TouchActivityEventArgs : public EventArgs {
 public:

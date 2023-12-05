@@ -1,6 +1,6 @@
 #pragma once
-#include "logging/logger.h"
-#include "framework.h"
+#include "../logging/logger.h"
+#include "../framework.h"
 
 /**
  * \brief A class for displaying various popups in the application.

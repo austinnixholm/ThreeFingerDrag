@@ -1,5 +1,5 @@
 #include "popups.h"
-#include "logging/logger.h"
+#include "../logging/logger.h"
 #include "wintoastlib.h"
 
 using namespace WinToastLib;

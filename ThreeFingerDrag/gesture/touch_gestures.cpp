@@ -1,5 +1,5 @@
 #include "touch_gestures.h"
-#include "popups.h"
+#include "../notification/popups.h"
 #include <future>
 
 namespace Gestures

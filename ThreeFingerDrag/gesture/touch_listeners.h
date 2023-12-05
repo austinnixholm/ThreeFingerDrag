@@ -1,7 +1,7 @@
 #pragma once
-#include "event/touch_events.h"
-#include "mouse/cursor.h"
-#include "popups.h"
+#include "../event/touch_events.h"
+#include "../mouse/cursor.h"
+#include "../notification/popups.h"
 
 namespace GestureListeners {
 

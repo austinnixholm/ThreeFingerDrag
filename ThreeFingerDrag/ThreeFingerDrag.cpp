@@ -118,7 +118,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 BOOL InitInstance(const HINSTANCE hInstance)
 {
-
 	// Initialize WinToast notifications
 	if (!InitializeWindowsNotifications()) {
 		ERROR("Failed to initialize WinToast.");

@@ -4,8 +4,8 @@
 #include <string>
 #include <sstream>
 #include <fstream>
-#include "touch_gestures.h"
-#include "ini.h"
+#include "gesture/touch_gestures.h"
+#include "data/ini.h"
 #include "config/globalconfig.h"
 
 namespace Application {

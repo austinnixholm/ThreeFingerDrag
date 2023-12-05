@@ -30,16 +30,16 @@
     <ClInclude Include="logging\logger.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="touch_gestures.h">
+    <ClInclude Include="gesture\touch_gestures.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="popups.h">
+    <ClInclude Include="notification\popups.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="wintoastlib.h">
+    <ClInclude Include="notification\wintoastlib.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ini.h">
+    <ClInclude Include="data\ini.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="application.h">
@@ -54,10 +54,10 @@
     <ClInclude Include="event\touch_events.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="touch_data.h">
+    <ClInclude Include="data\touch_data.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="touch_listeners.h">
+    <ClInclude Include="gesture\touch_listeners.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="mouse\cursor.h">
@@ -74,13 +74,13 @@
     <ClCompile Include="logging\logger.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="touch_gestures.cpp">
+    <ClCompile Include="gesture\touch_gestures.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="popups.cpp">
+    <ClCompile Include="notification\popups.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="wintoastlib.cpp">
+    <ClCompile Include="notification\wintoastlib.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="config\globalconfig.cpp">
