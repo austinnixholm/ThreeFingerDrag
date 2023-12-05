@@ -10,7 +10,6 @@ namespace
 	constexpr auto PROGRAM_NAME = L"ThreeFingerDrag";
 	constexpr auto UPDATE_SETTINGS_PERIOD_MS = std::chrono::milliseconds(2000);
 	constexpr auto TOUCH_ACTIVITY_PERIOD_MS = std::chrono::milliseconds(1);
-	constexpr auto CANCELLATION_TIME_MS = 650;
 	constexpr auto MAX_LOAD_STRING_LENGTH = 100;
 
 	constexpr auto SETTINGS_WINDOW_WIDTH = 456;
@@ -24,7 +23,7 @@ namespace
 	constexpr auto ID_RUN_ON_STARTUP_CHECKBOX = 10002;
 	constexpr auto ID_GESTURE_SPEED_TRACKBAR = 10003;
 	constexpr auto ID_TEXT_BOX = 10004;
-	constexpr auto ID_SKIPPED_FRAMES_SPINNER = 10005;
+	constexpr auto ID_CANCELLATION_DELAY_SPINNER = 10005;
 }
 
 // Global Variables
@@ -64,6 +63,7 @@ void ReadPrecisionTouchPadInfo();
 void ReadCursorSpeed();
 void StartPeriodicUpdateThreads();
 void HandleUncaughtExceptions();
+void PerformAdditionalSteps();
 void PromptUserForStartupPreference();
 void InitializeConfiguration();
 bool InitializeWindowsNotifications();
@@ -96,11 +96,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	}
 
 	StartPeriodicUpdateThreads();
-
-	// First time running application
-	if (Application::IsInitialStartup()) 
-		PromptUserForStartupPreference();
-
+	PerformAdditionalSteps();
+	
 	MSG msg;
 	while (GetMessage(&msg, nullptr, 0, 0))
 	{
@@ -347,7 +344,7 @@ bool InitializeGUI() {
 	HWND settings_spinner_hwnd = CreateWindowW(L"msctls_updown32", NULL,
 		WS_CHILD | WS_VISIBLE | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_SETBUDDYINT | UDS_NOTHOUSANDS,
 		pos_x, pos_y, 0, label_height, // Adjust the height as needed
-		settings_hwnd, (HMENU)ID_SKIPPED_FRAMES_SPINNER, current_instance, NULL); 
+		settings_hwnd, (HMENU)ID_CANCELLATION_DELAY_SPINNER, current_instance, NULL); 
 
 	SendMessage(settings_spinner_hwnd, UDM_SETBUDDY, (WPARAM)hwndTextBox, 0);
 	SendMessage(settings_spinner_hwnd, UDM_SETRANGE, 0, MAKELONG(MAX_CANCELLATION_DELAY_MS, MIN_CANCELLATION_DELAY_MS));
@@ -680,7 +677,18 @@ void PromptUserForStartupPreference() {
 	if (result)
 		AddStartupTask();
 	Popups::ShowToastNotification(L"You can access the program in the system tray.", L"Welcome to ThreeFingerDrag!");
+}
 
+void PerformAdditionalSteps() {
+	// First time running application
+	if (Application::IsInitialStartup())
+		PromptUserForStartupPreference();
+
+	// Replace legacy startup registry key with login task automatically for previous users
+	if (StartupRegistryKeyExists()) {
+		RemoveStartupRegistryKey();
+		TaskScheduler::CreateLoginTask("ThreeFingerDrag", Application::ExePath().u8string());
+	}
 }
 
 ATOM RegisterWindowClass(HINSTANCE hInstance, WCHAR* className, WNDPROC wndProc)

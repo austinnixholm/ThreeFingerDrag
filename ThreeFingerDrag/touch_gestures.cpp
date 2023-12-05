@@ -4,7 +4,6 @@
 
 namespace Gestures
 {
-
 	GestureProcessor::GestureProcessor() {
 		touchActivityEvent.AddListener(std::bind(&GestureListeners::TouchActivityListener::OnTouchActivity, &activityListener, std::placeholders::_1));
 		touchUpEvent.AddListener(std::bind(&GestureListeners::TouchUpListener::OnTouchUp, &touchUpListener, std::placeholders::_1));
@@ -12,7 +11,7 @@ namespace Gestures
 
 	void GestureProcessor::ParseRawTouchData(const LPARAM lParam)
 	{
-		auto a = std::async(std::launch::async, [&]{ InterpretRawInput((HRAWINPUT)lParam); });
+		std::async(std::launch::async, [&]{ InterpretRawInput((HRAWINPUT)lParam); });
 	}
 
 	/**
