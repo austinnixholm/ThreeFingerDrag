@@ -1,5 +1,6 @@
 [![Release](https://img.shields.io/github/v/release/austinnixholm/ThreeFingerDrag?label=Download%20version)](https://github.com/austinnixholm/ThreeFingerDrag/releases/latest)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+![GitHub all releases](https://img.shields.io/github/downloads/austinnixholm/threefingerdrag/total)
 
 # ![icon](https://i.ibb.co/JcnqD2W/png64x64-TFD.png)  ThreeFingerDrag
 
