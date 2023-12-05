@@ -142,7 +142,7 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="config\globalconfig.h" />
     <ClInclude Include="ini.h" />
-    <ClInclude Include="logger.h" />
+    <ClInclude Include="logging\logger.h" />
     <ClInclude Include="mouse\cursor.h" />
     <ClInclude Include="popups.h" />
     <ClInclude Include="Resource.h" />
@@ -155,7 +155,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="config\globalconfig.cpp" />
-    <ClCompile Include="logger.cpp" />
+    <ClCompile Include="logging\logger.cpp" />
     <ClCompile Include="mouse\cursor.cpp" />
     <ClCompile Include="popups.cpp" />
     <ClCompile Include="ThreeFingerDrag.cpp" />

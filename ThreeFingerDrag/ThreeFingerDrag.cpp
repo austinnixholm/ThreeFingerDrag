@@ -10,13 +10,13 @@ namespace
 	constexpr auto PROGRAM_NAME = L"ThreeFingerDrag";
 	constexpr auto UPDATE_SETTINGS_PERIOD_MS = std::chrono::milliseconds(2000);
 	constexpr auto TOUCH_ACTIVITY_PERIOD_MS = std::chrono::milliseconds(1);
-	constexpr auto CANCELLATION_TIME_MS = 600;
+	constexpr auto CANCELLATION_TIME_MS = 650;
 	constexpr auto MAX_LOAD_STRING_LENGTH = 100;
 
 	constexpr auto SETTINGS_WINDOW_WIDTH = 456;
 	constexpr auto SETTINGS_WINDOW_HEIGHT = 170;
-	constexpr auto MIN_SKIPPED_FRAMES = 3;
-	constexpr auto MAX_SKIPPED_FRAMES = 25;
+	constexpr auto MIN_CANCELLATION_DELAY_MS = 100;
+	constexpr auto MAX_CANCELLATION_DELAY_MS = 2000;
 	constexpr auto MIN_GESTURE_SPEED = 1;
 	constexpr auto MAX_GESTURE_SPEED = 100;
 	constexpr auto ID_SETTINGS_MENUITEM = 10000;
@@ -63,9 +63,12 @@ void ReadPrecisionTouchPadInfo();
 void ReadCursorSpeed();
 void StartPeriodicUpdateThreads();
 void HandleUncaughtExceptions();
+void PromptUserForStartupPreference();
+void InitializeConfiguration();
 bool InitializeWindowsNotifications();
 bool StartupRegistryKeyExists();
 bool RegisterRawInputDevices();
+bool CheckSingleInstance();
 bool InitializeGUI();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -73,56 +76,31 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                       _In_ LPWSTR lpCmdLine,
                       _In_ int nCmdShow)
 {
+	current_instance = hInstance;
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
 	std::set_terminate(HandleUncaughtExceptions);
 
-	// Single application instance check
-	const HANDLE hMutex = CreateMutex(nullptr, TRUE, PROGRAM_NAME);
-	if (GetLastError() == ERROR_ALREADY_EXISTS)
-	{
-		Popups::DisplayErrorMessage("Another instance of Three Finger Drag is already running.");
-		CloseHandle(hMutex);
+	if (!CheckSingleInstance()) {
 		return FALSE;
 	}
 
-	// Read user configuration values
-	Application::ReadConfiguration();
-	ReadPrecisionTouchPadInfo();
-	ReadCursorSpeed();
+	InitializeConfiguration();
 
-	// Initialize global strings
-	LoadStringW(hInstance, IDS_APP_TITLE, title_bar_text, MAX_LOAD_STRING_LENGTH);
-	LoadStringW(hInstance, IDS_SETTINGS_TITLE, settings_title_text, MAX_LOAD_STRING_LENGTH);
-	LoadStringW(hInstance, IDC_THREEFINGERDRAG, main_window_class_name, MAX_LOAD_STRING_LENGTH);
-	LoadStringW(hInstance, IDC_SETTINGS, settings_window_class_name, MAX_LOAD_STRING_LENGTH);
-
-	// Register window classes
-	RegisterWindowClass(hInstance, main_window_class_name, WndProc);
-	RegisterWindowClass(hInstance, settings_window_class_name, SettingsWndProc);
-
-	// Perform application initialization:
-	if (!InitInstance(hInstance))
+	if (!InitInstance(current_instance))
 	{
 		ERROR("Application initialization failed.");
 		return FALSE;
 	}
 
-	// Start threads
 	StartPeriodicUpdateThreads();
 
 	// First time running application
-	if (Application::IsInitialStartup()) {
-		bool result = Popups::DisplayPrompt("Would you like run ThreeFingerDrag on startup of Windows?", "ThreeFingerDrag");
-		if (result)
-			AddStartupRegistryKey();
-		Popups::ShowToastNotification(L"You can access the program in the system tray.", L"Welcome to ThreeFingerDrag!");
-	}
+	if (Application::IsInitialStartup()) 
+		PromptUserForStartupPreference();
 
 	MSG msg;
-
-	// Enter message loop and process incoming messages until WM_QUIT is received
 	while (GetMessage(&msg, nullptr, 0, 0))
 	{
 		TranslateMessage(&msg);
@@ -142,7 +120,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 BOOL InitInstance(const HINSTANCE hInstance)
 {
-	current_instance = hInstance;
 
 	// Initialize WinToast notifications
 	if (!InitializeWindowsNotifications()) {
@@ -235,7 +212,7 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 					case ID_TEXT_BOX:
 						wchar_t buffer[64];
 						GetWindowText((HWND)lParam, buffer, 64); // get textbox text
-						config->SetSkippedGestureFrames(_wtoi(buffer));// convert to integer (only numerical values are entered)
+						config->SetCancellationDelayMs(_wtoi(buffer));// convert to integer (only numerical values are entered)
 						Application::WriteConfiguration();
 						break;
 				}
@@ -293,7 +270,7 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 }
 
 /**
- * \brief Initializes window handles for GUI.
+ * \brief Create the main application window and the settings window.
  */
 bool InitializeGUI() {
 	tray_icon_hwnd = CreateWindowEx(
@@ -369,18 +346,18 @@ bool InitializeGUI() {
 	HWND settings_spinner_hwnd = CreateWindowW(L"msctls_updown32", NULL,
 		WS_CHILD | WS_VISIBLE | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_SETBUDDYINT | UDS_NOTHOUSANDS,
 		pos_x, pos_y, 0, label_height, // Adjust the height as needed
-		settings_hwnd, (HMENU)ID_SKIPPED_FRAMES_SPINNER, current_instance, NULL); // Spinner Controls ID as per your request.
+		settings_hwnd, (HMENU)ID_SKIPPED_FRAMES_SPINNER, current_instance, NULL); 
 
 	SendMessage(settings_spinner_hwnd, UDM_SETBUDDY, (WPARAM)hwndTextBox, 0);
-	SendMessage(settings_spinner_hwnd, UDM_SETRANGE, 0, MAKELONG(MAX_SKIPPED_FRAMES, MIN_SKIPPED_FRAMES)); 
-	SendMessage(settings_spinner_hwnd, UDM_SETPOS, 0, MAKELONG(config->GetSkippedGestureFrames(), 0)); 
+	SendMessage(settings_spinner_hwnd, UDM_SETRANGE, 0, MAKELONG(MAX_CANCELLATION_DELAY_MS, MIN_CANCELLATION_DELAY_MS));
+	SendMessage(settings_spinner_hwnd, UDM_SETPOS, 0, MAKELONG(config->GetCancellationDelayMs(), 0)); 
 
 	pos_x += 60;
 
 	// Label for numeric textbox
-	HWND hwnd_spinner_label = CreateWindowW(L"STATIC", L"Skipped initial frames of gesture movement",
+	HWND hwnd_spinner_label = CreateWindowW(L"STATIC", L"Cancellation Delay (milliseconds)",
 		WS_CHILD | WS_VISIBLE | SS_LEFT,
-		pos_x, pos_y, SETTINGS_WINDOW_WIDTH - margin, label_height, // Adjust these values as per your UI layout requirement.
+		pos_x, pos_y, SETTINGS_WINDOW_WIDTH - margin, label_height,
 		settings_hwnd, NULL, NULL, NULL);
 
 	SendMessage(hwnd_spinner_label, WM_SETFONT, reinterpret_cast<WPARAM>(normal_font), TRUE);
@@ -670,6 +647,42 @@ void RemoveStartupRegistryKey()
 		Popups::DisplayInfoMessage("Startup task has been removed successfully.");
 
 	RegCloseKey(hKey);
+}
+
+bool CheckSingleInstance() {
+	const HANDLE hMutex = CreateMutex(nullptr, TRUE, PROGRAM_NAME);
+	if (GetLastError() == ERROR_ALREADY_EXISTS)
+	{
+		Popups::DisplayErrorMessage("Another instance of Three Finger Drag is already running.");
+		CloseHandle(hMutex);
+		return false;
+	}
+	return true;
+}
+
+void InitializeConfiguration() {
+	// Read user configuration values
+	Application::ReadConfiguration();
+	ReadPrecisionTouchPadInfo();
+	ReadCursorSpeed();
+
+	// Initialize global strings
+	LoadStringW(current_instance, IDS_APP_TITLE, title_bar_text, MAX_LOAD_STRING_LENGTH);
+	LoadStringW(current_instance, IDS_SETTINGS_TITLE, settings_title_text, MAX_LOAD_STRING_LENGTH);
+	LoadStringW(current_instance, IDC_THREEFINGERDRAG, main_window_class_name, MAX_LOAD_STRING_LENGTH);
+	LoadStringW(current_instance, IDC_SETTINGS, settings_window_class_name, MAX_LOAD_STRING_LENGTH);
+
+	// Register window classes
+	RegisterWindowClass(current_instance, main_window_class_name, WndProc);
+	RegisterWindowClass(current_instance, settings_window_class_name, SettingsWndProc);
+}
+
+void PromptUserForStartupPreference() {
+	bool result = Popups::DisplayPrompt("Would you like run ThreeFingerDrag on startup of Windows?", "ThreeFingerDrag");
+	if (result)
+		AddStartupRegistryKey();
+	Popups::ShowToastNotification(L"You can access the program in the system tray.", L"Welcome to ThreeFingerDrag!");
+
 }
 
 ATOM RegisterWindowClass(HINSTANCE hInstance, WCHAR* className, WNDPROC wndProc)

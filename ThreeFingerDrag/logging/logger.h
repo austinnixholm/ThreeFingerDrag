@@ -74,7 +74,7 @@ private:
     void WriteLog(const std::string& type, const std::string& message);
 };
 
-#define INFO(msg)   Logger::GetInstance().Info(msg)
-#define DEBUG(msg)  Logger::GetInstance().Debug(msg)
-#define WARNING(msg)  Logger::GetInstance().Warning(msg)
-#define ERROR(msg)  Logger::GetInstance().Error(msg)
+#define INFO(msg)       Logger::GetInstance().Info(msg)
+#define DEBUG(msg)      Logger::GetInstance().Debug(msg)
+#define WARNING(msg)    Logger::GetInstance().Warning(msg)
+#define ERROR(msg)      Logger::GetInstance().Error(msg)

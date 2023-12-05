@@ -7,10 +7,6 @@
 
 namespace Gestures
 {
-	constexpr auto NUM_TOUCH_CONTACTS_REQUIRED = 3;
-	constexpr auto MIN_VALID_TOUCH_CONTACTS = 1;
-	constexpr auto INACTIVITY_THRESHOLD_MS = 50;
-
 	constexpr auto INIT_VALUE = 65535;
 	constexpr auto CONTACT_ID_MAXIMUM = 64;
 	constexpr auto USAGE_PAGE_DIGITIZER_VALUES = 0x01;
@@ -51,7 +47,10 @@ namespace Gestures
 		 */
 		void InterpretRawInput(HRAWINPUT hRawInputHandle);
 
-		bool TouchPointsAreValid(const std::vector<TouchPoint>& points);
+		/**
+		 * \returns true if any of the given touch points are contacting the surface of the touchpad.
+		 */
+		bool TouchPointsMadeContact(const std::vector<TouchPoint>& points);
 		
 		GestureListeners::TouchActivityListener activityListener;
 		GestureListeners::TouchUpListener touchUpListener;
@@ -60,16 +59,6 @@ namespace Gestures
 		Event<TouchUpEventArgs> touchUpEvent;
 
 		TouchInputData previous_data_; 
-		std::chrono::time_point<std::chrono::steady_clock> last_gesture_;
-
-		int gesture_frames_skipped_ = 0;
-		int skipped_frame_amount_ = 3;
-		double gesture_speed_ = 25.0;
-		double precision_touch_cursor_speed_ = 0.5;
-		double mouse_cursor_speed_ = 0.5;
-		double accumulated_delta_x_ = 0;
-		double accumulated_delta_y_ = 0;
-		bool is_dragging_ = false;
 	};
 
 

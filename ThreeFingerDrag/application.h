@@ -11,7 +11,7 @@
 namespace Application {
 
     constexpr int VERSION_MAJOR = 1;
-    constexpr int VERSION_MINOR = 1;
+    constexpr int VERSION_MINOR = 2;
     constexpr int VERSION_PATCH = 0;
 
     constexpr char VERSION_FILE_NAME[] = "version.txt";
@@ -79,7 +79,7 @@ namespace Application {
         ss << std::fixed << std::setprecision(2) << config->GetGestureSpeed();
 
         ini["Configuration"]["gesture_speed"] = ss.str();
-        ini["Configuration"]["skipped_gesture_frames"] = std::to_string(config->GetSkippedGestureFrames());
+        ini["Configuration"]["cancellation_delay_ms"] = std::to_string(config->GetCancellationDelayMs());
 
         file.generate(ini);
     }
@@ -106,8 +106,8 @@ namespace Application {
         if (config_section.has("gesture_speed")) 
             config->SetGestureSpeed(std::stof(config_section.get("gesture_speed")));
         
-        if (config_section.has("skipped_gesture_frames"))
-            config->SetSkippedGestureFrames(std::stof(config_section.get("skipped_gesture_frames")));
+        if (config_section.has("cancellation_delay_ms"))
+            config->SetCancellationDelayMs(std::stof(config_section.get("cancellation_delay_ms")));
     }
 
 }

@@ -6,7 +6,7 @@
 #include <Windows.h>
 
 #include "resource.h"
-#include "logger.h"
+#include "logging/logger.h"
 #include "application.h"
 #include "wintoastlib.h"
 #include "popups.h"

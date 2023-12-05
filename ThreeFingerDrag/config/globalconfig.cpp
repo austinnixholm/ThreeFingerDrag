@@ -5,7 +5,7 @@ GlobalConfig* GlobalConfig::instance = nullptr;
 GlobalConfig::GlobalConfig() {
     // Set default values
     gesture_speed_ = DEFAULT_ACCELERATION_FACTOR;
-    skipped_gesture_frames_ = DEFAULT_NUM_SKIPPED_FRAMES;
+    cancellation_delay_ms_ = DEFAULT_CANCELLATION_DELAY_MS;
     precision_touch_cursor_speed_ = DEFAULT_PRECISION_CURSOR_SPEED;
     mouse_cursor_speed_ = DEFAULT_MOUSE_CURSOR_SPEED;
     cancellation_started_ = false;
@@ -18,12 +18,12 @@ GlobalConfig* GlobalConfig::GetInstance() {
     return instance;
 }
 
-int GlobalConfig::GetSkippedGestureFrames() const {
-    return skipped_gesture_frames_;
+int GlobalConfig::GetCancellationDelayMs() const {
+    return cancellation_delay_ms_;
 }
 
-void GlobalConfig::SetSkippedGestureFrames(int frames) {
-    skipped_gesture_frames_ = frames;
+void GlobalConfig::SetCancellationDelayMs(int delay) {
+    cancellation_delay_ms_ = delay;
 }
 
 double GlobalConfig::GetPrecisionTouchCursorSpeed() const {
@@ -88,4 +88,12 @@ std::chrono::time_point<std::chrono::steady_clock> GlobalConfig::GetLastValidMov
 
 void GlobalConfig::SetLastValidMovement(std::chrono::time_point<std::chrono::steady_clock> time) {
     last_valid_movement_ = time;
+}
+
+std::chrono::time_point<std::chrono::steady_clock> GlobalConfig::GetLastGesture() const {
+    return last_gesture_;
+}
+
+void GlobalConfig::SetLastGesture(std::chrono::time_point<std::chrono::steady_clock> time) {
+    last_gesture_ = time;
 }

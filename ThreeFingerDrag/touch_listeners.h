@@ -9,7 +9,7 @@ namespace GestureListeners {
 	constexpr auto MIN_VALID_TOUCH_CONTACTS = 1;
 	constexpr auto INACTIVITY_THRESHOLD_MS = 50;
 	constexpr auto GESTURE_START_THRESHOLD_MS = 20;
-	constexpr auto CANCELLATION_TIME_MS = 600;
+	constexpr auto CANCELLATION_TIME_MS = 650;
 
 	static void CancelGesture() {
 		GlobalConfig* config = GlobalConfig::GetInstance();
@@ -36,8 +36,17 @@ namespace GestureListeners {
 				return;
 
 			// Calculate the time elapsed since the initial touchpad contact
-			const std::chrono::duration<float> duration = now - gesture_start_;
+			std::chrono::duration<float> duration = now - gesture_start_;
 			const float ms_since_start = duration.count() * 1000.0f;
+
+			// Calculate the time elapsed since previous touchpad data was received
+			duration = now - config->GetLastGesture();
+			const float ms_since_last_gesture = duration.count() * 1000.0f;
+
+			// Prevents initial jumpy movement due to old data comparison
+			if (ms_since_last_gesture > INACTIVITY_THRESHOLD_MS) {
+				return;
+			}
 
 			// Initialize the change in delta_x and delta_y coordinates of the mouse pointer
 			int total_delta_x = 0;
@@ -58,7 +67,7 @@ namespace GestureListeners {
 				// Check if any movement was present since the last received raw input
 				if (std::abs(x_diff) > 0 || std::abs(y_diff) > 0)
 				{
-					// Cancel immediately if cancellation has previously begun, and this is a non-gesture movement
+					// Cancel immediately if a previous cancellation has begun, and this is a non-gesture movement
 					if (config->IsCancellationStarted() && !args.data->can_perform_gesture) {
 						CancelGesture();
 						return;
@@ -81,13 +90,15 @@ namespace GestureListeners {
 			accumulated_delta_y_ /= divisor;
 
 			// Apply movement acceleration using a logarithmic function 
+			const double gesture_speed = (100 - config->GetGestureSpeed() + 3);
 			const double movement_mag = std::sqrt(accumulated_delta_x_ * accumulated_delta_x_ + accumulated_delta_y_ * accumulated_delta_y_);
-			const double factor = (std::log2(movement_mag + 1) / config->GetGestureSpeed()) * (1 + config->GetPrecisionTouchCursorSpeed());
+			const double factor = (std::log2(movement_mag + 1) / gesture_speed) * (1 + config->GetPrecisionTouchCursorSpeed());
 
 			total_delta_x = static_cast<int>(accumulated_delta_x_ * factor);
 			total_delta_y = static_cast<int>(accumulated_delta_y_ * factor);
 
 
+			// Delay initial dragging gesture movement, and ignore invalid movement actions
 			if (ms_since_start <= GESTURE_START_THRESHOLD_MS || !(args.data->can_perform_gesture || config->IsDragging())) {
 				return;
 			}
@@ -98,7 +109,8 @@ namespace GestureListeners {
 			Cursor::MoveCursor(total_delta_x, total_delta_y);
 
 			const auto change = std::abs(total_delta_x + total_delta_y);
-
+			
+			// Set timestamp for when any cursor movement occurred
 			if (change > 0)
 				config->SetLastValidMovement(now);
 

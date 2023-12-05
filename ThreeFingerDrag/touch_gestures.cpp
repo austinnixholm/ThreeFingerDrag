@@ -124,7 +124,7 @@ namespace Gestures
 			case 0:
 				if (usage_page == USAGE_PAGE_DIGITIZER_INFO && usage == USAGE_DIGITIZER_CONTACT_COUNT) {
 					contact_count = value;
-					if (contact_count == NUM_TOUCH_CONTACTS_REQUIRED)
+					if (contact_count == GestureListeners::NUM_TOUCH_CONTACTS_REQUIRED)
 						data.can_perform_gesture = true;
 				}
 				break;
@@ -183,8 +183,8 @@ namespace Gestures
 		data.contact_count = contact_count;
 
 		// Fire touch up event if there are no valid contact points on the touchpad surface on this report
-		const bool previousHasContact = TouchPointsAreValid(previous_data_.contacts);
-		const bool hasContact = TouchPointsAreValid(contacts);
+		const bool previousHasContact = TouchPointsMadeContact(previous_data_.contacts);
+		const bool hasContact = TouchPointsMadeContact(contacts);
 		const auto time = std::chrono::high_resolution_clock::now();
 
 		// Interpret the touch movement into events
@@ -193,11 +193,15 @@ namespace Gestures
 			return;
 		} 
 		touchActivityEvent.RaiseEvent(TouchActivityEventArgs(time, &data, previous_data_));
+		GlobalConfig::GetInstance()->SetLastGesture(time);
 		previous_data_ = data;
 		return;
 	}
 
-	bool GestureProcessor::TouchPointsAreValid(const std::vector<TouchPoint>& points)
+	/**
+	 * \returns true if any of the given touch points are contacting the surface of the touchpad.
+	 */
+	bool GestureProcessor::TouchPointsMadeContact(const std::vector<TouchPoint>& points)
 	{
 		return std::any_of(points.begin(), points.end(), [](TouchPoint p) { return p.contact_id < CONTACT_ID_MAXIMUM && p.onSurface; });
 	}
