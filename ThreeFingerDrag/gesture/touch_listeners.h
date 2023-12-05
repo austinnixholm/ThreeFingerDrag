@@ -23,15 +23,17 @@ namespace GestureListeners {
 		void OnTouchActivity(TouchActivityEventArgs args) {
 			GlobalConfig* config = GlobalConfig::GetInstance();
 
+			// Check if it's the initial gesture
 			const bool is_initial_gesture = !config->IsDragging() && args.data->can_perform_gesture;
 			const auto now = std::chrono::high_resolution_clock::now();
 
+			// If it's the initial gesture, set the gesture start time
 			if (is_initial_gesture && !config->IsGestureStarted()) {
 				gesture_start_ = now;
 				config->SetGestureStarted(true);
 			}
 
-			// No previous data to compare to. 
+			// If there's no previous data, return
 			if (args.previous_data.contacts.empty())
 				return;
 
@@ -48,15 +50,14 @@ namespace GestureListeners {
 				return;
 			}
 
-			// Initialize the change in delta_x and delta_y coordinates of the mouse pointer
-			int total_delta_x = 0;
-			int total_delta_y = 0;
+			// Loop through each touch contact
 			int valid_touches = 0;
 			for (int i = 0; i < NUM_TOUCH_CONTACTS_REQUIRED; i++)
 			{
 				const auto& contact = args.data->contacts[i];
 				const auto& previous_contact = args.previous_data.contacts[i];
 
+				// Only compare identical touch contact points
 				if (contact.contact_id != previous_contact.contact_id)
 					continue;
 
@@ -80,6 +81,7 @@ namespace GestureListeners {
 				}
 			}
 
+			// If there are not enough valid touches, return
 			if (valid_touches < MIN_VALID_TOUCH_CONTACTS)
 				return;
 
@@ -90,12 +92,16 @@ namespace GestureListeners {
 			accumulated_delta_y_ /= divisor;
 
 			// Apply movement acceleration using a logarithmic function 
-			const double gesture_speed = (100 - config->GetGestureSpeed() + 3);
+			const double gesture_speed = config->GetGestureSpeed();
 			const double movement_mag = std::sqrt(accumulated_delta_x_ * accumulated_delta_x_ + accumulated_delta_y_ * accumulated_delta_y_);
-			const double factor = (std::log2(movement_mag + 1) / gesture_speed) * (1 + config->GetPrecisionTouchCursorSpeed());
+			const double factor = (std::log2(movement_mag + 1)) * (1 + config->GetPrecisionTouchCursorSpeed());
 
-			total_delta_x = static_cast<int>(accumulated_delta_x_ * factor);
-			total_delta_y = static_cast<int>(accumulated_delta_y_ * factor);
+			double total_delta_x = accumulated_delta_x_;
+			double total_delta_y = accumulated_delta_y_;
+
+			// Apply the gesture_speed at the end of the calculation
+			total_delta_x *= (gesture_speed / 100);
+			total_delta_y *= (gesture_speed / 100);
 
 
 			// Delay initial dragging gesture movement, and ignore invalid movement actions
@@ -114,9 +120,7 @@ namespace GestureListeners {
 			if (change > 0)
 				config->SetLastValidMovement(now);
 
-			accumulated_delta_x_ -= total_delta_x;
-			accumulated_delta_y_ -= total_delta_y;
-
+			// Start dragging if left mouse is not already down.
 			if (!config->IsDragging()) {
 				Cursor::LeftMouseDown();
 				config->SetDragging(true);
@@ -124,8 +128,10 @@ namespace GestureListeners {
 		}
 
 	private:
+		// Accumulated deltas for x and y movements
 		double accumulated_delta_x_ = 0;
 		double accumulated_delta_y_ = 0;
+		// Time point for gesture start
 		std::chrono::time_point<std::chrono::steady_clock> gesture_start_;
 	};
 

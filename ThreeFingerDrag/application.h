@@ -12,7 +12,7 @@ namespace Application {
 
     constexpr int VERSION_MAJOR = 1;
     constexpr int VERSION_MINOR = 2;
-    constexpr int VERSION_PATCH = 0;
+    constexpr int VERSION_PATCH = 1;
 
     constexpr char VERSION_FILE_NAME[] = "version.txt";
 
@@ -116,6 +116,5 @@ namespace Application {
         GetModuleFileNameW(nullptr, path, FILENAME_MAX);
         return std::filesystem::path(path);
     }
-
 
 }
