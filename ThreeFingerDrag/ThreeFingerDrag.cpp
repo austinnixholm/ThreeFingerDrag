@@ -9,13 +9,13 @@ namespace
 	constexpr auto STARTUP_REGISTRY_KEY = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
 	constexpr auto PROGRAM_NAME = L"ThreeFingerDrag";
 	constexpr auto UPDATE_SETTINGS_PERIOD_MS = std::chrono::milliseconds(2000);
-	constexpr auto TOUCH_ACTIVITY_PERIOD_MS = std::chrono::milliseconds(50);
+	constexpr auto TOUCH_ACTIVITY_PERIOD_MS = std::chrono::milliseconds(1);
 	constexpr auto MAX_LOAD_STRING_LENGTH = 100;
 
 	constexpr auto SETTINGS_WINDOW_WIDTH = 456;
 	constexpr auto SETTINGS_WINDOW_HEIGHT = 170;
-	constexpr auto MIN_SKIPPED_FRAMES = 3;
-	constexpr auto MAX_SKIPPED_FRAMES = 25;
+	constexpr auto MIN_CANCELLATION_DELAY_MS = 100;
+	constexpr auto MAX_CANCELLATION_DELAY_MS = 2000;
 	constexpr auto MIN_GESTURE_SPEED = 1;
 	constexpr auto MAX_GESTURE_SPEED = 100;
 	constexpr auto ID_SETTINGS_MENUITEM = 10000;
@@ -23,7 +23,7 @@ namespace
 	constexpr auto ID_RUN_ON_STARTUP_CHECKBOX = 10002;
 	constexpr auto ID_GESTURE_SPEED_TRACKBAR = 10003;
 	constexpr auto ID_TEXT_BOX = 10004;
-	constexpr auto ID_SKIPPED_FRAMES_SPINNER = 10005;
+	constexpr auto ID_CANCELLATION_DELAY_SPINNER = 10005;
 }
 
 // Global Variables
@@ -56,16 +56,20 @@ LRESULT CALLBACK SettingsWndProc(HWND, UINT, WPARAM, LPARAM);
 
 void CreateTrayMenu(HWND hWnd);
 void ShowSettingsWindow();
-void AddStartupRegistryKey();
+void AddStartupTask();
+void RemoveStartupTask();
 void RemoveStartupRegistryKey();
 void ReadPrecisionTouchPadInfo();
 void ReadCursorSpeed();
-void UpdateGestureProcessor();
 void StartPeriodicUpdateThreads();
 void HandleUncaughtExceptions();
+void PerformAdditionalSteps();
+void PromptUserForStartupPreference();
+void InitializeConfiguration();
 bool InitializeWindowsNotifications();
 bool StartupRegistryKeyExists();
 bool RegisterRawInputDevices();
+bool CheckSingleInstance();
 bool InitializeGUI();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -73,56 +77,28 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                       _In_ LPWSTR lpCmdLine,
                       _In_ int nCmdShow)
 {
+	current_instance = hInstance;
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
 	std::set_terminate(HandleUncaughtExceptions);
 
-	// Single application instance check
-	const HANDLE hMutex = CreateMutex(nullptr, TRUE, PROGRAM_NAME);
-	if (GetLastError() == ERROR_ALREADY_EXISTS)
-	{
-		Popups::DisplayErrorMessage("Another instance of Three Finger Drag is already running.");
-		CloseHandle(hMutex);
+	if (!CheckSingleInstance()) {
 		return FALSE;
 	}
 
-	// Read user configuration values
-	Application::ReadConfiguration();
-	ReadPrecisionTouchPadInfo();
-	ReadCursorSpeed();
+	InitializeConfiguration();
 
-	// Initialize global strings
-	LoadStringW(hInstance, IDS_APP_TITLE, title_bar_text, MAX_LOAD_STRING_LENGTH);
-	LoadStringW(hInstance, IDS_SETTINGS_TITLE, settings_title_text, MAX_LOAD_STRING_LENGTH);
-	LoadStringW(hInstance, IDC_THREEFINGERDRAG, main_window_class_name, MAX_LOAD_STRING_LENGTH);
-	LoadStringW(hInstance, IDC_SETTINGS, settings_window_class_name, MAX_LOAD_STRING_LENGTH);
-
-	// Register window classes
-	RegisterWindowClass(hInstance, main_window_class_name, WndProc);
-	RegisterWindowClass(hInstance, settings_window_class_name, SettingsWndProc);
-
-	// Perform application initialization:
-	if (!InitInstance(hInstance))
+	if (!InitInstance(current_instance))
 	{
 		ERROR("Application initialization failed.");
 		return FALSE;
 	}
 
-	// Start threads
 	StartPeriodicUpdateThreads();
-
-	// First time running application
-	if (Application::IsInitialStartup()) {
-		bool result = Popups::DisplayPrompt("Would you like run ThreeFingerDrag on startup of Windows?", "ThreeFingerDrag");
-		if (result)
-			AddStartupRegistryKey();
-		Popups::ShowToastNotification(L"You can access the program in the system tray.", L"Welcome to ThreeFingerDrag!");
-	}
-
+	PerformAdditionalSteps();
+	
 	MSG msg;
-
-	// Enter message loop and process incoming messages until WM_QUIT is received
 	while (GetMessage(&msg, nullptr, 0, 0))
 	{
 		TranslateMessage(&msg);
@@ -142,8 +118,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 BOOL InitInstance(const HINSTANCE hInstance)
 {
-	current_instance = hInstance;
-
 	// Initialize WinToast notifications
 	if (!InitializeWindowsNotifications()) {
 		ERROR("Failed to initialize WinToast.");
@@ -235,9 +209,8 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 					case ID_TEXT_BOX:
 						wchar_t buffer[64];
 						GetWindowText((HWND)lParam, buffer, 64); // get textbox text
-						config->SetSkippedGestureFrames(_wtoi(buffer));// convert to integer (only numerical values are entered)
+						config->SetCancellationDelayMs(_wtoi(buffer));// convert to integer (only numerical values are entered)
 						Application::WriteConfiguration();
-						UpdateGestureProcessor();
 						break;
 				}
 			}
@@ -247,9 +220,9 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 				case ID_RUN_ON_STARTUP_CHECKBOX:
 					// Run on startup checkbox clicked
 					if (SendMessage(GetDlgItem(hWnd, ID_RUN_ON_STARTUP_CHECKBOX), BM_GETCHECK, 0, 0) == BST_CHECKED) 
-						AddStartupRegistryKey();
+						AddStartupTask();
 					else 
-						RemoveStartupRegistryKey();
+						RemoveStartupTask();
 					break;
 			}
 			break;
@@ -264,7 +237,6 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 
 					config->SetGestureSpeed(tbPos);
 					Application::WriteConfiguration();
-					UpdateGestureProcessor();
 				}
 			}
 			break;
@@ -295,7 +267,7 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 }
 
 /**
- * \brief Initializes window handles for GUI.
+ * \brief Create the main application window and the settings window.
  */
 bool InitializeGUI() {
 	tray_icon_hwnd = CreateWindowEx(
@@ -371,18 +343,18 @@ bool InitializeGUI() {
 	HWND settings_spinner_hwnd = CreateWindowW(L"msctls_updown32", NULL,
 		WS_CHILD | WS_VISIBLE | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_SETBUDDYINT | UDS_NOTHOUSANDS,
 		pos_x, pos_y, 0, label_height, // Adjust the height as needed
-		settings_hwnd, (HMENU)ID_SKIPPED_FRAMES_SPINNER, current_instance, NULL); // Spinner Controls ID as per your request.
+		settings_hwnd, (HMENU)ID_CANCELLATION_DELAY_SPINNER, current_instance, NULL); 
 
 	SendMessage(settings_spinner_hwnd, UDM_SETBUDDY, (WPARAM)hwndTextBox, 0);
-	SendMessage(settings_spinner_hwnd, UDM_SETRANGE, 0, MAKELONG(MAX_SKIPPED_FRAMES, MIN_SKIPPED_FRAMES)); 
-	SendMessage(settings_spinner_hwnd, UDM_SETPOS, 0, MAKELONG(config->GetSkippedGestureFrames(), 0)); 
+	SendMessage(settings_spinner_hwnd, UDM_SETRANGE, 0, MAKELONG(MAX_CANCELLATION_DELAY_MS, MIN_CANCELLATION_DELAY_MS));
+	SendMessage(settings_spinner_hwnd, UDM_SETPOS, 0, MAKELONG(config->GetCancellationDelayMs(), 0)); 
 
 	pos_x += 60;
 
 	// Label for numeric textbox
-	HWND hwnd_spinner_label = CreateWindowW(L"STATIC", L"Skipped initial frames of gesture movement",
+	HWND hwnd_spinner_label = CreateWindowW(L"STATIC", L"Cancellation Delay (milliseconds)",
 		WS_CHILD | WS_VISIBLE | SS_LEFT,
-		pos_x, pos_y, SETTINGS_WINDOW_WIDTH - margin, label_height, // Adjust these values as per your UI layout requirement.
+		pos_x, pos_y, SETTINGS_WINDOW_WIDTH - margin, label_height,
 		settings_hwnd, NULL, NULL, NULL);
 
 	SendMessage(hwnd_spinner_label, WM_SETFONT, reinterpret_cast<WPARAM>(normal_font), TRUE);
@@ -458,7 +430,7 @@ void CreateTrayMenu(const HWND hWnd)
 void ShowSettingsWindow() 
 {
 	// Update run on startup checkbox
-	if (StartupRegistryKeyExists()) 
+	if (TaskScheduler::TaskExists("ThreeFingerDrag"))
 		SendMessage(settings_checkbox_hwnd, BM_SETCHECK, BST_CHECKED, 0);
 	else 
 		SendMessage(settings_checkbox_hwnd, BM_SETCHECK, BST_UNCHECKED, 0);
@@ -501,10 +473,18 @@ void StartPeriodicUpdateThreads()
 			while (application_running)
 			{
 				std::this_thread::sleep_for(TOUCH_ACTIVITY_PERIOD_MS);
-				if (!gesture_processor.IsDragging())
+				if (!config->IsCancellationStarted()) {
 					continue;
-
-				gesture_processor.CheckDragInactivity();
+				}
+				const auto now = std::chrono::high_resolution_clock::now();
+				const std::chrono::duration<float> duration = now - config->GetCancellationTime();
+				const float ms_since_cancellation = duration.count() * 1000.0f;
+				if (ms_since_cancellation < config->GetCancellationDelayMs()) {
+					continue;
+				}
+				Cursor::LeftMouseUp();
+				config->SetDragging(false);
+				config->SetCancellationStarted(false);
 			}
 		});
 }
@@ -541,7 +521,7 @@ void ReadPrecisionTouchPadInfo()
 		return;
 	}
 	// Changes value from range [0, 20] to range [0.0 -> 1.0]
-	gesture_processor.SetTouchSpeed(touch_speed * 5 / 100.0f);
+	config->SetPrecisionTouchCursorSpeed(touch_speed * 5 / 100.0f);
 }
 
 /**
@@ -561,15 +541,7 @@ void ReadCursorSpeed()
 	}
 
 	// Changes value from range [0, 20] to range [0.0 -> 1.0]
-	gesture_processor.SetMouseSpeed(mouse_speed * 5 / 100.0f);
-}
-
-/**
- * \brief Updates the gesture processor with known config values
- */
-void UpdateGestureProcessor() {
-	gesture_processor.SetGestureSpeed(config->GetGestureSpeed());
-	gesture_processor.SetSkippedFrameAmount(config->GetSkippedGestureFrames());
+	config->SetMouseCursorSpeed(mouse_speed * 5 / 100.0f);
 }
 
 
@@ -614,8 +586,37 @@ bool InitializeWindowsNotifications() {
 }
 
 /**
- * \brief Checks if the registry key for starting the program at system startup exists.
- * \return True if the registry key exists, false otherwise.
+ * \brief Adds the registry key for starting the program at system startup.
+ */
+void AddStartupTask()
+{
+	// Remove possible existing registry key from previous version of application
+	if (StartupRegistryKeyExists())
+		RemoveStartupRegistryKey();
+
+	if (TaskScheduler::CreateLoginTask("ThreeFingerDrag", Application::ExePath().u8string()))
+		Popups::DisplayInfoMessage("Startup task has been created successfully.");
+	else
+		Popups::DisplayErrorMessage("An error occurred while trying to create the login task.");
+}
+
+/**
+ * \brief Removes the registry key for starting the program at system startup. Displays a message box on success.
+ */
+void RemoveStartupTask()
+{
+	// Remove possible existing registry key from previous version of application
+	if (StartupRegistryKeyExists())
+		RemoveStartupRegistryKey();
+
+	TaskScheduler::DeleteTask("ThreeFingerDrag");
+	if (!TaskScheduler::TaskExists("ThreeFingerDrag"))
+		Popups::DisplayInfoMessage("Startup task has been removed successfully.");
+}
+
+
+/**
+ * \return True if the registry key for the startup program name exists.
  */
 bool StartupRegistryKeyExists()
 {
@@ -630,32 +631,6 @@ bool StartupRegistryKeyExists()
 }
 
 /**
- * \brief Adds the registry key for starting the program at system startup.
- */
-void AddStartupRegistryKey()
-{
-	HKEY hKey;
-	WCHAR app_path[MAX_PATH];
-	const DWORD path_len = GetModuleFileName(nullptr, app_path, MAX_PATH);
-	if (path_len == 0 || path_len == MAX_PATH)
-	{
-		ERROR("Could not retrieve the application path!");
-		return;
-	}
-	LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, STARTUP_REGISTRY_KEY, 0, KEY_WRITE, &hKey);
-	if (result != ERROR_SUCCESS)
-		return;
-	result = RegSetValueEx(hKey, PROGRAM_NAME, 0, REG_SZ, (BYTE*)app_path,
-	                       (DWORD)(wcslen(app_path) + 1) * sizeof(wchar_t));
-	if (result == ERROR_SUCCESS)
-		Popups::DisplayInfoMessage("Startup task has been created successfully.");
-	else
-		Popups::DisplayErrorMessage("An error occurred while trying to set the registry value.");
-
-	RegCloseKey(hKey);
-}
-
-/**
  * \brief Removes the registry key for starting the program at system startup. Displays a message box on success.
  */
 void RemoveStartupRegistryKey()
@@ -663,15 +638,56 @@ void RemoveStartupRegistryKey()
 	HKEY hKey;
 	LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, STARTUP_REGISTRY_KEY, 0, KEY_WRITE, &hKey);
 	if (result != ERROR_SUCCESS)
-	{
-		Popups::DisplayErrorMessage("Registry key could not be found.");
 		return;
-	}
-	result = RegDeleteValue(hKey, PROGRAM_NAME);
-	if (result == ERROR_SUCCESS)
-		Popups::DisplayInfoMessage("Startup task has been removed successfully.");
-
+	RegDeleteValue(hKey, PROGRAM_NAME);
 	RegCloseKey(hKey);
+}
+
+bool CheckSingleInstance() {
+	const HANDLE hMutex = CreateMutex(nullptr, TRUE, PROGRAM_NAME);
+	if (GetLastError() == ERROR_ALREADY_EXISTS)
+	{
+		Popups::DisplayErrorMessage("Another instance of Three Finger Drag is already running.");
+		CloseHandle(hMutex);
+		return false;
+	}
+	return true;
+}
+
+void InitializeConfiguration() {
+	// Read user configuration values
+	Application::ReadConfiguration();
+	ReadPrecisionTouchPadInfo();
+	ReadCursorSpeed();
+
+	// Initialize global strings
+	LoadStringW(current_instance, IDS_APP_TITLE, title_bar_text, MAX_LOAD_STRING_LENGTH);
+	LoadStringW(current_instance, IDS_SETTINGS_TITLE, settings_title_text, MAX_LOAD_STRING_LENGTH);
+	LoadStringW(current_instance, IDC_THREEFINGERDRAG, main_window_class_name, MAX_LOAD_STRING_LENGTH);
+	LoadStringW(current_instance, IDC_SETTINGS, settings_window_class_name, MAX_LOAD_STRING_LENGTH);
+
+	// Register window classes
+	RegisterWindowClass(current_instance, main_window_class_name, WndProc);
+	RegisterWindowClass(current_instance, settings_window_class_name, SettingsWndProc);
+}
+
+void PromptUserForStartupPreference() {
+	bool result = Popups::DisplayPrompt("Would you like run ThreeFingerDrag on startup of Windows?", "ThreeFingerDrag");
+	if (result)
+		AddStartupTask();
+	Popups::ShowToastNotification(L"You can access the program in the system tray.", L"Welcome to ThreeFingerDrag!");
+}
+
+void PerformAdditionalSteps() {
+	// First time running application
+	if (Application::IsInitialStartup())
+		PromptUserForStartupPreference();
+
+	// Replace legacy startup registry key with login task automatically for previous users
+	if (StartupRegistryKeyExists()) {
+		RemoveStartupRegistryKey();
+		TaskScheduler::CreateLoginTask("ThreeFingerDrag", Application::ExePath().u8string());
+	}
 }
 
 ATOM RegisterWindowClass(HINSTANCE hInstance, WCHAR* className, WNDPROC wndProc)
