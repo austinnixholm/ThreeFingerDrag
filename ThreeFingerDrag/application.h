@@ -6,7 +6,7 @@
 #include <fstream>
 #include "touch_gestures.h"
 #include "ini.h"
-#include "globalconfig.h"
+#include "config/globalconfig.h"
 
 namespace Application {
 

@@ -11,7 +11,6 @@ struct TouchPoint
 struct TouchInputData
 {
 	std::vector<TouchPoint> contacts;
-	int scan_time = 0;
 	int contact_count = 0;
 	bool can_perform_gesture = false;
 };

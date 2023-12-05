@@ -9,7 +9,8 @@ namespace
 	constexpr auto STARTUP_REGISTRY_KEY = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
 	constexpr auto PROGRAM_NAME = L"ThreeFingerDrag";
 	constexpr auto UPDATE_SETTINGS_PERIOD_MS = std::chrono::milliseconds(2000);
-	constexpr auto TOUCH_ACTIVITY_PERIOD_MS = std::chrono::milliseconds(50);
+	constexpr auto TOUCH_ACTIVITY_PERIOD_MS = std::chrono::milliseconds(1);
+	constexpr auto CANCELLATION_TIME_MS = 600;
 	constexpr auto MAX_LOAD_STRING_LENGTH = 100;
 
 	constexpr auto SETTINGS_WINDOW_WIDTH = 456;
@@ -60,7 +61,6 @@ void AddStartupRegistryKey();
 void RemoveStartupRegistryKey();
 void ReadPrecisionTouchPadInfo();
 void ReadCursorSpeed();
-void UpdateGestureProcessor();
 void StartPeriodicUpdateThreads();
 void HandleUncaughtExceptions();
 bool InitializeWindowsNotifications();
@@ -237,7 +237,6 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 						GetWindowText((HWND)lParam, buffer, 64); // get textbox text
 						config->SetSkippedGestureFrames(_wtoi(buffer));// convert to integer (only numerical values are entered)
 						Application::WriteConfiguration();
-						UpdateGestureProcessor();
 						break;
 				}
 			}
@@ -264,7 +263,6 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 
 					config->SetGestureSpeed(tbPos);
 					Application::WriteConfiguration();
-					UpdateGestureProcessor();
 				}
 			}
 			break;
@@ -501,10 +499,18 @@ void StartPeriodicUpdateThreads()
 			while (application_running)
 			{
 				std::this_thread::sleep_for(TOUCH_ACTIVITY_PERIOD_MS);
-				if (!gesture_processor.IsDragging())
+				if (!config->IsCancellationStarted()) {
 					continue;
-
-				gesture_processor.CheckDragInactivity();
+				}
+				const auto now = std::chrono::high_resolution_clock::now();
+				const std::chrono::duration<float> duration = now - config->GetCancellationTime();
+				const float ms_since_cancellation = duration.count() * 1000.0f;
+				if (ms_since_cancellation < CANCELLATION_TIME_MS) {
+					continue;
+				}
+				Cursor::LeftMouseUp();
+				config->SetDragging(false);
+				config->SetCancellationStarted(false);
 			}
 		});
 }
@@ -541,7 +547,7 @@ void ReadPrecisionTouchPadInfo()
 		return;
 	}
 	// Changes value from range [0, 20] to range [0.0 -> 1.0]
-	gesture_processor.SetTouchSpeed(touch_speed * 5 / 100.0f);
+	config->SetPrecisionTouchCursorSpeed(touch_speed * 5 / 100.0f);
 }
 
 /**
@@ -561,15 +567,7 @@ void ReadCursorSpeed()
 	}
 
 	// Changes value from range [0, 20] to range [0.0 -> 1.0]
-	gesture_processor.SetMouseSpeed(mouse_speed * 5 / 100.0f);
-}
-
-/**
- * \brief Updates the gesture processor with known config values
- */
-void UpdateGestureProcessor() {
-	gesture_processor.SetGestureSpeed(config->GetGestureSpeed());
-	gesture_processor.SetSkippedFrameAmount(config->GetSkippedGestureFrames());
+	config->SetMouseCursorSpeed(mouse_speed * 5 / 100.0f);
 }
 
 

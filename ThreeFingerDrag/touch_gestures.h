@@ -36,43 +36,6 @@ namespace Gestures
 		 */
 		void ParseRawTouchData(LPARAM lParam);
 
-
-		/**
-		 * @brief Function to set the amount of skipped gesture frames.
-		 * @param speed The new amount of skipped frames.
-		 */
-		void SetSkippedFrameAmount(int amount);
-
-		/**
-		 * @brief Function to set the gesture speed of ThreeFingerDrag.
-		 * @param speed The new speed to set for the gesture.
-		 */
-		void SetGestureSpeed(double speed);
-
-		/**
-		 * @brief Function to set the speed of the windows touchpad cursor speed.
-		 * @param speed The new speed to set for the touchpad.
-		 */
-		void SetTouchSpeed(double speed);
-
-		/**
-		 * @brief Function to set the speed of the windows mouse cursor speed.
-		 * @param speed The new speed to set for the cursor.
-		 */
-		void SetMouseSpeed(double speed);
-
-		/**
-		 * \brief Checks if there has been no drag activity for a while.
-		 * \remarks Stops dragging if there has been any detected inactivity.
-		 */
-		void CheckDragInactivity();
-
-		/**
-		 * \brief Checks if dragging is currently in progress.
-		 * \return True if dragging is in progress, false otherwise.
-		 */
-		bool IsDragging() const;
-
 		GestureProcessor(const GestureProcessor& other) = delete; // Disallow copy constructor
 		GestureProcessor(GestureProcessor&& other) noexcept = delete; // Disallow move constructor
 		GestureProcessor& operator=(const GestureProcessor& other) = delete; // Disallow copy assignment
@@ -86,47 +49,14 @@ namespace Gestures
 		 * @param hRawInputHandle Handle to the raw input data.
 		 * @return The retrieved touch data.
 		 */
-		TouchInputData RetrieveTouchData(HRAWINPUT hRawInputHandle);
-
-		/**
-		 * \brief Starts the dragging process, performs left mouse down.
-		 */
-		void StartDragging();
-
-		/**
-		 * \brief Stops the dragging process, performs left mouse up.
-		 */
-		void StopDragging();
-
-		/**
-		 * \brief Simulates a windows click input event.
-		 * \param flags Input flags type of mouse click.
-		 */
-		void SimulateClick(DWORD click_flags);
-
-		/**
-		 * \brief Moves the mouse pointer based on the given touch input data.
-		 * \param delta_x Amount to move the cursor x position.
-		 * \param delta_y Amount to move the cursor y position.
-		 */
-		void MoveCursor(int delta_x, int delta_y) const;
-
-		/**
-		 * \brief Moves the mouse pointer based on the given touch input data.
-		 * \param data		   The latest input data.
-		 * \param current_time The current time point.
-		 */
-		void PerformGestureMovement(const TouchInputData& data,
-		                            const std::chrono::time_point<std::chrono::steady_clock>& current_time);
+		void InterpretRawInput(HRAWINPUT hRawInputHandle);
 
 		bool TouchPointsAreValid(const std::vector<TouchPoint>& points);
 		
-		TouchActivityListener activityListener;
-		TouchUpListener touchUpListener;
-		TouchDownListener touchDownListener;
+		GestureListeners::TouchActivityListener activityListener;
+		GestureListeners::TouchUpListener touchUpListener;
 
 		Event<TouchActivityEventArgs> touchActivityEvent;
-		Event<TouchDownEventArgs> touchDownEvent;
 		Event<TouchUpEventArgs> touchUpEvent;
 
 		TouchInputData previous_data_; 
