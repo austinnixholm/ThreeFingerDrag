@@ -11,7 +11,7 @@ namespace Gestures
 
 	void GestureProcessor::ParseRawTouchData(const LPARAM lParam)
 	{
-		std::async(std::launch::async, [&]{ InterpretRawInput((HRAWINPUT)lParam); });
+		auto a = std::async(std::launch::async, [&]{ InterpretRawInput((HRAWINPUT)lParam); });
 	}
 
 	/**
@@ -187,7 +187,7 @@ namespace Gestures
 		const auto time = std::chrono::high_resolution_clock::now();
 
 		// Interpret the touch movement into events
-		if (!hasContact) {
+		if (!hasContact && previousHasContact) {
 			touchUpEvent.RaiseEvent(TouchUpEventArgs(time, &data, previous_data_));
 			return;
 		} 

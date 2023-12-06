@@ -25,12 +25,12 @@ namespace GestureListeners {
 
 			// Check if it's the initial gesture
 			const bool is_initial_gesture = !config->IsDragging() && args.data->can_perform_gesture;
-			const auto now = std::chrono::high_resolution_clock::now();
+			const auto time = args.time;
 
 			// If it's the initial gesture, set the gesture start time
 			if (is_initial_gesture && !config->IsGestureStarted()) {
-				gesture_start_ = now;
 				config->SetGestureStarted(true);
+				gesture_start_ = time;
 			}
 
 			// If there's no previous data, return
@@ -38,11 +38,11 @@ namespace GestureListeners {
 				return;
 
 			// Calculate the time elapsed since the initial touchpad contact
-			std::chrono::duration<float> duration = now - gesture_start_;
+			std::chrono::duration<float> duration = time - gesture_start_;
 			const float ms_since_start = duration.count() * 1000.0f;
 
 			// Calculate the time elapsed since previous touchpad data was received
-			duration = now - config->GetLastGesture();
+			duration = time - config->GetLastGesture();
 			const float ms_since_last_gesture = duration.count() * 1000.0f;
 
 			// Prevents initial jumpy movement due to old data comparison
@@ -54,6 +54,9 @@ namespace GestureListeners {
 			int valid_touches = 0;
 			for (int i = 0; i < NUM_TOUCH_CONTACTS_REQUIRED; i++)
 			{
+				if (i > args.previous_data.contacts.size() - 1) 
+					continue;
+				
 				const auto& contact = args.data->contacts[i];
 				const auto& previous_contact = args.previous_data.contacts[i];
 
@@ -86,29 +89,20 @@ namespace GestureListeners {
 				return;
 
 			// Centroid calculation
-			const double divisor = static_cast<double>(NUM_TOUCH_CONTACTS_REQUIRED);
+			const long double divisor = static_cast<long double>(NUM_TOUCH_CONTACTS_REQUIRED);
 
 			accumulated_delta_x_ /= divisor;
 			accumulated_delta_y_ /= divisor;
 
-			// Apply movement acceleration using a logarithmic function 
-			const double gesture_speed = config->GetGestureSpeed();
-			const double movement_mag = std::sqrt(accumulated_delta_x_ * accumulated_delta_x_ + accumulated_delta_y_ * accumulated_delta_y_);
-			const double factor = (std::log2(movement_mag + 1)) * (1 + config->GetPrecisionTouchCursorSpeed());
-
-			double total_delta_x = accumulated_delta_x_;
-			double total_delta_y = accumulated_delta_y_;
-
-			// Apply the gesture_speed at the end of the calculation
-			total_delta_x *= (gesture_speed / 100);
-			total_delta_y *= (gesture_speed / 100);
-
+			// Apply movement acceleration 
+			const double gesture_speed = config->GetGestureSpeed() / 100.0;
+			const double total_delta_x = accumulated_delta_x_ * gesture_speed;
+			const double total_delta_y = accumulated_delta_y_ * gesture_speed;
 
 			// Delay initial dragging gesture movement, and ignore invalid movement actions
-			if (ms_since_start <= GESTURE_START_THRESHOLD_MS || !(args.data->can_perform_gesture || config->IsDragging())) {
+			if (ms_since_start <= GESTURE_START_THRESHOLD_MS || !(args.data->can_perform_gesture || config->IsDragging())) 
 				return;
-			}
-
+			
 			config->SetCancellationStarted(false);
 
 			// Move the mouse pointer based on the calculated vector
@@ -118,7 +112,7 @@ namespace GestureListeners {
 			
 			// Set timestamp for when any cursor movement occurred
 			if (change > 0)
-				config->SetLastValidMovement(now);
+				config->SetLastValidMovement(time);
 
 			// Start dragging if left mouse is not already down.
 			if (!config->IsDragging()) {
@@ -140,20 +134,23 @@ namespace GestureListeners {
 		void OnTouchUp(TouchUpEventArgs args) {
 			GlobalConfig* config = GlobalConfig::GetInstance();
 			config->SetGestureStarted(false);
-			if (config->IsDragging() && !config->IsCancellationStarted()) {
-				// Calculate the time elapsed since the last valid gesture movement
-				const auto now = std::chrono::high_resolution_clock::now();
-				const std::chrono::duration<float> duration = now - config->GetLastValidMovement();
-				const float ms_since_last_movement = duration.count() * 1000.0f;
 
-				// If there hasn't been any movement for same amount of time we will delay, then cancel immediately
-				if (ms_since_last_movement >= CANCELLATION_TIME_MS) {
-					CancelGesture();
-					return;
-				}
-				config->SetCancellationStarted(true);
-				config->SetCancellationTime(now);
+			if (!config->IsDragging() || config->IsCancellationStarted()) 
+				return;
+			
+			// Calculate the time elapsed since the last valid gesture movement
+			const auto now = std::chrono::high_resolution_clock::now();
+			const std::chrono::duration<float> duration = now - config->GetLastValidMovement();
+			const float ms_since_last_movement = duration.count() * 1000.0f;
+
+			// If there hasn't been any movement for same amount of time we will delay, then cancel immediately
+			if (ms_since_last_movement >= CANCELLATION_TIME_MS) {
+				CancelGesture();
+				return;
 			}
+
+			config->SetCancellationStarted(true);
+			config->SetCancellationTime(now);
 		}
 	};
 }
