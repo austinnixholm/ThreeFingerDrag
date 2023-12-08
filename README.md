@@ -3,7 +3,7 @@
 ![GitHub all releases](https://img.shields.io/github/downloads/austinnixholm/threefingerdrag/total)
 
 [![TFD-GH-DARK-512.png](https://i.postimg.cc/RZXdx8qh/TFD-GH-DARK-512.png)](https://postimg.cc/hXQT92LR#gh-dark-mode-only)
-[![TFD-GH-LIGHT-512.png](https://i.postimg.cc/05YHHVGM/TFD-GH-LIGHT-512.png)](https://postimg.cc/14RFWmGH#gh-light-mode-only)
+[![TFD-GH-LIGHT-512.png](https://i.postimg.cc/ZYW6WnnT/TFD-GH-LIGHT-512.png)](https://postimg.cc/14RFWmGH#gh-light-mode-only)
 
 Emulates the macOS three-finger-drag feature on your Windows precision touchpad. Simply install and run, minimal setup required.
 
