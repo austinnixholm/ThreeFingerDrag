@@ -2,14 +2,15 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 ![GitHub all releases](https://img.shields.io/github/downloads/austinnixholm/threefingerdrag/total)
 
-# ![icon](https://i.ibb.co/JcnqD2W/png64x64-TFD.png)  ThreeFingerDrag
+[![TFD-GH-DARK-512.png](https://i.postimg.cc/RZXdx8qh/TFD-GH-DARK-512.png)](https://postimg.cc/hXQT92LR#gh-dark-mode-only)
+[![TFD-GH-LIGHT-512.png](https://i.postimg.cc/VsnFk553/TFD-GH-LIGHT-512.png)](https://postimg.cc/14RFWmGH#gh-light-mode-only)
 
 Emulates the macOS three-finger-drag feature on your Windows precision touchpad. Simply install and run, minimal setup required.
 
 ## Features
 
-* Lightweight and minimalistic design
 * Easily configurable 
+* Lightweight and minimalistic design
 * Accessible menu through the system tray
 
 ## Usage
@@ -18,7 +19,9 @@ Emulates the macOS three-finger-drag feature on your Windows precision touchpad.
 3. Launch the program, and you will be prompted to run ThreeFingerDrag on Windows startup. This is optional, and you can always choose to enable or disable this feature later.
 4. ThreeFingerDrag will now run in the background of the system. You can configure the program through the system tray menu, which is accessible by clicking the ThreeFingerDrag icon in the notification area of the taskbar.
 
-![system tray icon](https://i.ibb.co/1Rb1Gb1/image-2023-05-03-130955903.png) 
+<p align="center">
+  <img src="https://i.postimg.cc/mgRCDSK9/Three-Finger-Drag-XW25-QZPTg-P.png"/> 
+</p>
 
 **NOTE:** It's recommended to remove any existing three-finger swipe gestures within `Touchpad Settings` in order to prevent possible interference.
 
