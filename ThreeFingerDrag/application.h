@@ -8,16 +8,18 @@
 #include "data/ini.h"
 #include "config/globalconfig.h"
 
-namespace Application {
-
+namespace Application
+{
     constexpr int VERSION_MAJOR = 1;
     constexpr int VERSION_MINOR = 2;
     constexpr int VERSION_PATCH = 2;
 
     constexpr char VERSION_FILE_NAME[] = "version.txt";
 
-    std::string GetVersionString() {
-        return std::to_string(VERSION_MAJOR) + "." + std::to_string(VERSION_MINOR) + "." + std::to_string(VERSION_PATCH);
+    std::string GetVersionString()
+    {
+        return std::to_string(VERSION_MAJOR) + "." + std::to_string(VERSION_MINOR) + "." +
+            std::to_string(VERSION_PATCH);
     }
 
     GlobalConfig* config = GlobalConfig::GetInstance();
@@ -26,7 +28,8 @@ namespace Application {
      * @brief Constructs and returns the path to application configuration files. If required, the directory will be created.
      * @return The local app data folder path
      */
-    std::string GetConfigurationFolderPath() {
+    std::string GetConfigurationFolderPath()
+    {
         size_t len;
         char* env_path;
         const errno_t err = _dupenv_s(&env_path, &len, "LOCALAPPDATA");
@@ -45,8 +48,8 @@ namespace Application {
      * @brief Checks if a version.txt file exists in application data and updates it.
      * @return True if no version file was found
      */
-    bool IsInitialStartup() {
-
+    bool IsInitialStartup()
+    {
         std::string version_file_path_ = GetConfigurationFolderPath();
 
         version_file_path_ += "\\";
@@ -67,7 +70,8 @@ namespace Application {
         return true;
     }
 
-    void WriteConfiguration() {
+    void WriteConfiguration()
+    {
         std::stringstream ss;
         std::string file_path = GetConfigurationFolderPath();
         file_path += "\\";
@@ -84,13 +88,14 @@ namespace Application {
         file.generate(ini);
     }
 
-    void ReadConfiguration() {
-
+    void ReadConfiguration()
+    {
         std::string file_path = GetConfigurationFolderPath();
         file_path += "\\";
         file_path += "\\config.ini";
 
-        if (!std::filesystem::exists(file_path)) {
+        if (!std::filesystem::exists(file_path))
+        {
             WriteConfiguration();
             return;
         }
@@ -103,18 +108,17 @@ namespace Application {
 
         const auto config_section = ini["Configuration"];
 
-        if (config_section.has("gesture_speed")) 
+        if (config_section.has("gesture_speed"))
             config->SetGestureSpeed(std::stof(config_section.get("gesture_speed")));
-        
+
         if (config_section.has("cancellation_delay_ms"))
             config->SetCancellationDelayMs(std::stof(config_section.get("cancellation_delay_ms")));
     }
 
     std::filesystem::path ExePath()
     {
-        wchar_t path[FILENAME_MAX] = { 0 };
+        wchar_t path[FILENAME_MAX] = {0};
         GetModuleFileNameW(nullptr, path, FILENAME_MAX);
         return std::filesystem::path(path);
     }
-
 }

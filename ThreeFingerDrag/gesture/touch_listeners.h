@@ -54,12 +54,12 @@ namespace GestureListeners
             // Prevents initial jumpy movement due to old data comparison
             if (ms_since_last_gesture > INACTIVITY_THRESHOLD_MS)
                 return;
-            
+
             // Delay initial dragging gesture movement, and ignore invalid movement actions
             if (ms_since_start <= GESTURE_START_THRESHOLD_MS || !(args.data->can_perform_gesture || config->
                 IsDragging()))
                 return;
-            
+
             // Loop through each touch contact
             int valid_touches = 0;
             std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> accumulated_delta_x = {0.0};
@@ -91,7 +91,7 @@ namespace GestureListeners
                         CancelGesture();
                         return;
                     }
-                    
+
                     // Accumulate the movement delta for the current finger
                     accumulated_delta_x[i] += x_diff;
                     accumulated_delta_y[i] += y_diff;
@@ -101,11 +101,14 @@ namespace GestureListeners
                     distances[i] = std::sqrt(x_diff * x_diff + y_diff * y_diff);
 
                     // If only one finger is moving significantly more than the others
-                    if (distances[i] > 3.0) {
+                    if (distances[i] > 3.0)
+                    {
                         // Assign it a weight of 1 and the other fingers a weight of 0
                         total_weight = 1.0;
                         total_weight += total_weight;
-                    } else {
+                    }
+                    else
+                    {
                         // Calculate the weight of the current finger based on the inverse of the distance
                         total_weight = 1.0 / distances[i];
                         total_weight += total_weight;
@@ -120,9 +123,11 @@ namespace GestureListeners
             // If there are not enough valid touches, return
             if (valid_touches < MIN_VALID_TOUCH_CONTACTS)
                 return;
-            
-            const double final_delta_x = std::accumulate(accumulated_delta_x.begin(), accumulated_delta_x.end(), 0.0) / total_weight;
-            const double final_delta_y = std::accumulate(accumulated_delta_y.begin(), accumulated_delta_y.end(), 0.0) / total_weight;
+
+            const double final_delta_x = std::accumulate(accumulated_delta_x.begin(), accumulated_delta_x.end(), 0.0) /
+                total_weight;
+            const double final_delta_y = std::accumulate(accumulated_delta_y.begin(), accumulated_delta_y.end(), 0.0) /
+                total_weight;
 
             // Apply movement acceleration 
             const double gesture_speed = config->GetGestureSpeed() / 100;
@@ -130,7 +135,7 @@ namespace GestureListeners
             const double total_delta_y = final_delta_y * gesture_speed;
 
             config->SetCancellationStarted(false);
-            
+
             // Move the mouse pointer based on the calculated vector
             Cursor::MoveCursor(total_delta_x, total_delta_y);
 
@@ -148,7 +153,7 @@ namespace GestureListeners
             }
         }
 
-    private:  
+    private:
         // Time point for gesture start
         std::chrono::time_point<std::chrono::steady_clock> gesture_start_;
     };

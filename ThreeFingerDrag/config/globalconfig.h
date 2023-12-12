@@ -9,7 +9,8 @@ constexpr auto DEFAULT_PRECISION_CURSOR_SPEED = 0.5;
 constexpr auto DEFAULT_MOUSE_CURSOR_SPEED = 0.5;
 constexpr auto DEFAULT_CANCELLATION_DELAY_MS = 500;
 
-class GlobalConfig {
+class GlobalConfig
+{
 private:
     double gesture_speed_;
     double precision_touch_cursor_speed_;
