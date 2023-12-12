@@ -19,4 +19,3 @@ public:
     static bool DisplayWarningPrompt(const std::string& message, const std::string& title);
     static void ShowToastNotification(const std::wstring& message, const std::wstring& title);
 };
-

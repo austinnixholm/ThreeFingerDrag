@@ -11,7 +11,6 @@
 class Logger
 {
 public:
-
     /**
      * @brief Writes an info log message to the file.
      * @param message The log message.
