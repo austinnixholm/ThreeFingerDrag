@@ -263,7 +263,6 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
             return TRUE;
         }
 
-    // Window creation, control creation and event handling codes here...
     case WM_CLOSE:
         ShowWindow(hWnd, SW_HIDE);
         return TRUE;
@@ -351,7 +350,7 @@ bool InitializeGUI()
     HWND settings_spinner_hwnd = CreateWindowW(L"msctls_updown32", NULL,
                                                WS_CHILD | WS_VISIBLE | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_SETBUDDYINT
                                                | UDS_NOTHOUSANDS,
-                                               pos_x, pos_y, 0, label_height, // Adjust the height as needed
+                                               pos_x, pos_y, 0, label_height, 
                                                settings_hwnd, (HMENU)ID_CANCELLATION_DELAY_SPINNER, current_instance,
                                                NULL);
 
@@ -451,13 +450,12 @@ void ShowSettingsWindow()
     // Update trackbar position
     SendMessage(settings_trackbar_hwnd, TBM_SETPOS, TRUE, static_cast<int>(config->GetGestureSpeed()));
 
-    RECT rectClient, rectWindow;
-    GetClientRect(settings_hwnd, &rectClient);
-    GetWindowRect(settings_hwnd, &rectWindow);
-    int posx, posy;
-    posx = GetSystemMetrics(SM_CXSCREEN) / 2 - (rectWindow.right - rectWindow.left) / 2;
-    posy = GetSystemMetrics(SM_CYSCREEN) / 2 - (rectWindow.bottom - rectWindow.top) / 2;
-    MoveWindow(settings_hwnd, posx, posy, SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT, TRUE);
+    RECT rect_client, rect_window;
+    GetClientRect(settings_hwnd, &rect_client);
+    GetWindowRect(settings_hwnd, &rect_window);
+    const int x = GetSystemMetrics(SM_CXSCREEN) / 2 - (rect_window.right - rect_window.left) / 2;
+    const int y = GetSystemMetrics(SM_CYSCREEN) / 2 - (rect_window.bottom - rect_window.top) / 2;
+    MoveWindow(settings_hwnd, x, y, SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT, TRUE);
 
     // Show and update the window
     ShowWindow(settings_hwnd, SW_SHOW);
@@ -548,7 +546,7 @@ void ReadPrecisionTouchPadInfo()
 void ReadCursorSpeed()
 {
     int mouse_speed;
-    BOOL result = SystemParametersInfo(SPI_GETMOUSESPEED, 0, &mouse_speed, 0);
+    const bool result = SystemParametersInfo(SPI_GETMOUSESPEED, 0, &mouse_speed, 0);
 
     if (!result)
     {
@@ -613,6 +611,12 @@ void AddStartupTask()
     if (StartupRegistryKeyExists())
         RemoveStartupRegistryKey();
 
+    if (TaskScheduler::TaskExists("ThreeFingerDrag"))
+    {
+        Popups::DisplayInfoMessage("Startup task already exists!");
+        return;
+    }
+    
     if (TaskScheduler::CreateLoginTask("ThreeFingerDrag", Application::ExePath().u8string()))
         Popups::DisplayInfoMessage("Startup task has been created successfully.");
     else
@@ -694,10 +698,9 @@ void InitializeConfiguration()
 
 void PromptUserForStartupPreference()
 {
-    bool result = Popups::DisplayPrompt("Would you like run ThreeFingerDrag on startup of Windows?", "ThreeFingerDrag");
-    if (result)
+    if (Popups::DisplayPrompt("Would you like run ThreeFingerDrag on startup of Windows?", "ThreeFingerDrag"))
         AddStartupTask();
-    Popups::ShowToastNotification(L"You can access the program in the system tray.", L"Welcome to ThreeFingerDrag!");
+    Popups::ShowToastNotification(L"To change your sensitivity, access your settings via the tray icon.", L"Welcome to ThreeFingerDrag!");
 }
 
 void PerformAdditionalSteps()

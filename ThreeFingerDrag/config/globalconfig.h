@@ -22,7 +22,7 @@ private:
     std::chrono::time_point<std::chrono::steady_clock> cancellation_time_;
     std::chrono::time_point<std::chrono::steady_clock> last_valid_movement_;
     std::chrono::time_point<std::chrono::steady_clock> last_gesture_;
-    static GlobalConfig* instance;
+    static GlobalConfig* instance_;
 
     // Private constructor
     GlobalConfig();

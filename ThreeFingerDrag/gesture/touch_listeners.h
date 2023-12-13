@@ -62,10 +62,7 @@ namespace GestureListeners
 
             // Loop through each touch contact
             int valid_touches = 0;
-            std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> accumulated_delta_x = {0.0};
-            std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> accumulated_delta_y = {0.0};
             std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> distances = {0.0};
-            double total_weight = 0.0;
             for (int i = 0; i < NUM_TOUCH_CONTACTS_REQUIRED; i++)
             {
                 if (i > args.previous_data.contacts.size() - 1)
@@ -91,32 +88,14 @@ namespace GestureListeners
                         CancelGesture();
                         return;
                     }
+                    valid_touches++;
 
                     // Accumulate the movement delta for the current finger
                     accumulated_delta_x[i] += x_diff;
                     accumulated_delta_y[i] += y_diff;
-                    valid_touches++;
 
                     // Calculate the distance of the current finger from the previous position
                     distances[i] = std::sqrt(x_diff * x_diff + y_diff * y_diff);
-
-                    // If only one finger is moving significantly more than the others
-                    if (distances[i] > 3.0)
-                    {
-                        // Assign it a weight of 1 and the other fingers a weight of 0
-                        total_weight = 1.0;
-                        total_weight += total_weight;
-                    }
-                    else
-                    {
-                        // Calculate the weight of the current finger based on the inverse of the distance
-                        total_weight = 1.0 / distances[i];
-                        total_weight += total_weight;
-                    }
-
-                    // Multiply the accumulated deltas by the weight
-                    accumulated_delta_x[i] *= total_weight;
-                    accumulated_delta_y[i] *= total_weight;
                 }
             }
 
@@ -124,26 +103,25 @@ namespace GestureListeners
             if (valid_touches < MIN_VALID_TOUCH_CONTACTS)
                 return;
 
-            const double final_delta_x = std::accumulate(accumulated_delta_x.begin(), accumulated_delta_x.end(), 0.0) /
-                total_weight;
-            const double final_delta_y = std::accumulate(accumulated_delta_y.begin(), accumulated_delta_y.end(), 0.0) /
-                total_weight;
-
             // Apply movement acceleration 
-            const double gesture_speed = config->GetGestureSpeed() / 100;
-            const double total_delta_x = final_delta_x * gesture_speed;
-            const double total_delta_y = final_delta_y * gesture_speed;
+            const double gesture_speed = config ->GetGestureSpeed() / 100.0;
+            const double total_delta_x = std::accumulate(accumulated_delta_x.begin(), accumulated_delta_x.end(), 0.0) * gesture_speed;
+            const double total_delta_y = std::accumulate(accumulated_delta_y.begin(), accumulated_delta_y.end(), 0.0) * gesture_speed;
 
             config->SetCancellationStarted(false);
 
             // Move the mouse pointer based on the calculated vector
             Cursor::MoveCursor(total_delta_x, total_delta_y);
 
-            const auto change = std::abs(total_delta_x + total_delta_y);
-
             // Set timestamp for when any cursor movement occurred
+            const auto change = std::abs(total_delta_x + total_delta_y);
             if (change > 0)
+            {
                 config->SetLastValidMovement(time);
+                config->SetLastGesture(time);
+                accumulated_delta_x.fill(0);
+                accumulated_delta_y.fill(0);
+            }
 
             // Start dragging if left mouse is not already down.
             if (!config->IsDragging())
@@ -154,6 +132,8 @@ namespace GestureListeners
         }
 
     private:
+        std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> accumulated_delta_x = {0.0};
+        std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> accumulated_delta_y = {0.0};
         // Time point for gesture start
         std::chrono::time_point<std::chrono::steady_clock> gesture_start_;
     };

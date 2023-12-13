@@ -1,6 +1,6 @@
 #include "globalconfig.h"
 
-GlobalConfig* GlobalConfig::instance = nullptr;
+GlobalConfig* GlobalConfig::instance_ = nullptr;
 
 GlobalConfig::GlobalConfig()
 {
@@ -9,15 +9,16 @@ GlobalConfig::GlobalConfig()
     cancellation_delay_ms_ = DEFAULT_CANCELLATION_DELAY_MS;
     precision_touch_cursor_speed_ = DEFAULT_PRECISION_CURSOR_SPEED;
     mouse_cursor_speed_ = DEFAULT_MOUSE_CURSOR_SPEED;
+    gesture_started_ = false;
     cancellation_started_ = false;
     is_dragging_ = false;
 }
 
 GlobalConfig* GlobalConfig::GetInstance()
 {
-    if (instance == nullptr)
-        instance = new GlobalConfig();
-    return instance;
+    if (instance_ == nullptr)
+        instance_ = new GlobalConfig();
+    return instance_;
 }
 
 int GlobalConfig::GetCancellationDelayMs() const

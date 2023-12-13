@@ -12,23 +12,23 @@ namespace Application
 {
     constexpr int VERSION_MAJOR = 1;
     constexpr int VERSION_MINOR = 2;
-    constexpr int VERSION_PATCH = 2;
+    constexpr int VERSION_PATCH = 3;
 
     constexpr char VERSION_FILE_NAME[] = "version.txt";
 
-    std::string GetVersionString()
+    inline std::string GetVersionString()
     {
         return std::to_string(VERSION_MAJOR) + "." + std::to_string(VERSION_MINOR) + "." +
             std::to_string(VERSION_PATCH);
     }
 
-    GlobalConfig* config = GlobalConfig::GetInstance();
+    inline GlobalConfig* config = GlobalConfig::GetInstance();
 
     /**
      * @brief Constructs and returns the path to application configuration files. If required, the directory will be created.
      * @return The local app data folder path
      */
-    std::string GetConfigurationFolderPath()
+    inline std::string GetConfigurationFolderPath()
     {
         size_t len;
         char* env_path;
@@ -48,7 +48,7 @@ namespace Application
      * @brief Checks if a version.txt file exists in application data and updates it.
      * @return True if no version file was found
      */
-    bool IsInitialStartup()
+    inline bool IsInitialStartup()
     {
         std::string version_file_path_ = GetConfigurationFolderPath();
 
@@ -70,7 +70,7 @@ namespace Application
         return true;
     }
 
-    void WriteConfiguration()
+    inline void WriteConfiguration()
     {
         std::stringstream ss;
         std::string file_path = GetConfigurationFolderPath();
@@ -85,10 +85,11 @@ namespace Application
         ini["Configuration"]["gesture_speed"] = ss.str();
         ini["Configuration"]["cancellation_delay_ms"] = std::to_string(config->GetCancellationDelayMs());
 
-        file.generate(ini);
+        if (!file.generate(ini))
+            ERROR("Error writing to config file.");
     }
 
-    void ReadConfiguration()
+    inline void ReadConfiguration()
     {
         std::string file_path = GetConfigurationFolderPath();
         file_path += "\\";
@@ -115,7 +116,7 @@ namespace Application
             config->SetCancellationDelayMs(std::stof(config_section.get("cancellation_delay_ms")));
     }
 
-    std::filesystem::path ExePath()
+    inline std::filesystem::path ExePath()
     {
         wchar_t path[FILENAME_MAX] = {0};
         GetModuleFileNameW(nullptr, path, FILENAME_MAX);

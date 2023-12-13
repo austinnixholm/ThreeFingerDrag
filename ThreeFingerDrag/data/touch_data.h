@@ -5,7 +5,7 @@ struct TouchPoint
     int contact_id;
     int x;
     int y;
-    bool onSurface;
+    bool on_surface;
 };
 
 struct TouchInputData

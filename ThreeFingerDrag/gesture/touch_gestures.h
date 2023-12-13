@@ -49,7 +49,7 @@ namespace Gestures
         /**
          * \returns true if any of the given touch points are contacting the surface of the touchpad.
          */
-        bool TouchPointsMadeContact(const std::vector<TouchPoint>& points);
+        static bool TouchPointsMadeContact(const std::vector<TouchPoint>& points);
 
         GestureListeners::TouchActivityListener activityListener;
         GestureListeners::TouchUpListener touchUpListener;

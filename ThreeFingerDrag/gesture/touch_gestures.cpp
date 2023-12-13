@@ -164,7 +164,7 @@ namespace Gestures
                         // Determine if this contact point is on the touchpad surface
                         if (buttonUsageArray[usageIdx] == HID_USAGE_DIGITIZER_TIP_SWITCH)
                         {
-                            contact.onSurface = true;
+                            contact.on_surface = true;
                             break;
                         }
                     }
@@ -210,7 +210,7 @@ namespace Gestures
     {
         return std::any_of(points.begin(), points.end(), [](TouchPoint p)
         {
-            return p.contact_id < CONTACT_ID_MAXIMUM && p.onSurface;
+            return p.contact_id < CONTACT_ID_MAXIMUM && p.on_surface;
         });
     }
 }
