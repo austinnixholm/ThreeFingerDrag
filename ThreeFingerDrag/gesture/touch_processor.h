@@ -50,8 +50,8 @@ namespace Touchpad
          */
         static bool TouchPointsMadeContact(const std::vector<TouchPoint>& points);
 
-        GestureListeners::TouchActivityListener activityListener;
-        GestureListeners::TouchUpListener touchUpListener;
+        EventListeners::TouchActivityListener activityListener;
+        EventListeners::TouchUpListener touchUpListener;
 
         Event<TouchActivityEventArgs> touchActivityEvent;
         Event<TouchUpEventArgs> touchUpEvent;

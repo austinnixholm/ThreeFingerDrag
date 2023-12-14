@@ -6,12 +6,12 @@ namespace Touchpad
     TouchProcessor::TouchProcessor()
     {
         touchActivityEvent.AddListener(std::bind(
-            &GestureListeners::TouchActivityListener::OnTouchActivity,
+            &EventListeners::TouchActivityListener::OnTouchActivity,
             &activityListener,
             std::placeholders::_1));
         
         touchUpEvent.AddListener(std::bind(
-            &GestureListeners::TouchUpListener::OnTouchUp,
+            &EventListeners::TouchUpListener::OnTouchUp,
             &touchUpListener,
             std::placeholders::_1));
     }
@@ -130,7 +130,7 @@ namespace Touchpad
                 if (usage_page == USAGE_PAGE_DIGITIZER_INFO && usage == USAGE_DIGITIZER_CONTACT_COUNT)
                 {
                     contact_count = value;
-                    if (contact_count == GestureListeners::NUM_TOUCH_CONTACTS_REQUIRED)
+                    if (contact_count == EventListeners::NUM_TOUCH_CONTACTS_REQUIRED)
                         data.can_perform_gesture = true;
                 }
                 break;

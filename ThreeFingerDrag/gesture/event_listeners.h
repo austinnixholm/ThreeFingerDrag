@@ -5,7 +5,7 @@
 #include <array>
 #include <numeric>
 
-namespace GestureListeners
+namespace EventListeners
 {
     constexpr auto NUM_TOUCH_CONTACTS_REQUIRED = 3;
     constexpr auto MIN_VALID_TOUCH_CONTACTS = 1;
@@ -117,15 +117,23 @@ namespace GestureListeners
                 Cursor::LeftMouseDown();
                 config->SetDragging(true);
             }
+            
+            const auto change_x = std::abs(total_delta_x);
+            const auto change_y = std::abs(total_delta_y);
+            const auto total_change = change_x + change_y;
 
-            // Set timestamp for when any cursor movement occurred
-            const auto change = std::abs(total_delta_x + total_delta_y);
-            if (change > 0)
+            // Check if any movement occurred
+            if (total_change >= 1.0)
             {
+                // Set timestamp for last valid movement
                 config->SetLastValidMovement(time);
                 config->SetLastGesture(time);
-                accumulated_delta_x.fill(0);
-                accumulated_delta_y.fill(0);
+                
+                // Reset accumulated x/y data if necessary 
+                if (change_x >= 1.0)
+                    accumulated_delta_x.fill(0);
+                if (change_y >= 1.0)
+                    accumulated_delta_y.fill(0);
             }
         }
 
