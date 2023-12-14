@@ -1,8 +1,8 @@
 #pragma once
 #ifndef GLOBALCONFIG_H
 #define GLOBALCONFIG_H
-#include <iostream>
 #include <chrono>
+#include "../data/touch_data.h"
 
 constexpr auto DEFAULT_ACCELERATION_FACTOR = 75.0;
 constexpr auto DEFAULT_PRECISION_CURSOR_SPEED = 0.5;
@@ -22,6 +22,7 @@ private:
     std::chrono::time_point<std::chrono::steady_clock> cancellation_time_;
     std::chrono::time_point<std::chrono::steady_clock> last_valid_movement_;
     std::chrono::time_point<std::chrono::steady_clock> last_gesture_;
+    TouchInputData previous_touch_data_;
     static GlobalConfig* instance_;
 
     // Private constructor
@@ -41,6 +42,7 @@ public:
     std::chrono::time_point<std::chrono::steady_clock> GetCancellationTime() const;
     std::chrono::time_point<std::chrono::steady_clock> GetLastValidMovement() const;
     std::chrono::time_point<std::chrono::steady_clock> GetLastGesture() const;
+    TouchInputData GetPreviousTouchData() const;
 
     void SetCancellationDelayMs(int delay);
     void SetPrecisionTouchCursorSpeed(double speed);
@@ -52,6 +54,7 @@ public:
     void SetCancellationTime(std::chrono::time_point<std::chrono::steady_clock> time);
     void SetLastValidMovement(std::chrono::time_point<std::chrono::steady_clock> time);
     void SetLastGesture(std::chrono::time_point<std::chrono::steady_clock> time);
+    void SetPreviousTouchData(TouchInputData data);
 };
 
 #endif // GLOBALCONFIG_H

@@ -1,10 +1,9 @@
 #pragma once
 #include "../framework.h"
-#include "touch_listeners.h"
-#include <mutex>
+#include "event_listeners.h"
 #include <vector>
 
-namespace Gestures
+namespace Touchpad
 {
     constexpr auto INIT_VALUE = 65535;
     constexpr auto CONTACT_ID_MAXIMUM = 64;
@@ -20,10 +19,10 @@ namespace Gestures
     /**
      * \brief Class that processes touch input data to enable three-finger drag functionality.
      */
-    class GestureProcessor
+    class TouchProcessor
     {
     public:
-        GestureProcessor();
+        TouchProcessor();
 
         /**
          * @brief Parses raw touch data received by the touch pad.
@@ -31,11 +30,11 @@ namespace Gestures
          */
         void ParseRawTouchData(LPARAM lParam);
 
-        GestureProcessor(const GestureProcessor& other) = delete; // Disallow copy constructor
-        GestureProcessor(GestureProcessor&& other) noexcept = delete; // Disallow move constructor
-        GestureProcessor& operator=(const GestureProcessor& other) = delete; // Disallow copy assignment
-        GestureProcessor& operator=(GestureProcessor&& other) noexcept = delete; // Disallow move assignment
-        ~GestureProcessor() = default; // Default destructor
+        TouchProcessor(const TouchProcessor& other) = delete; // Disallow copy constructor
+        TouchProcessor(TouchProcessor&& other) noexcept = delete; // Disallow move constructor
+        TouchProcessor& operator=(const TouchProcessor& other) = delete; // Disallow copy assignment
+        TouchProcessor& operator=(TouchProcessor&& other) noexcept = delete; // Disallow move assignment
+        ~TouchProcessor() = default; // Default destructor
 
 
     private:
@@ -56,7 +55,5 @@ namespace Gestures
 
         Event<TouchActivityEventArgs> touchActivityEvent;
         Event<TouchUpEventArgs> touchUpEvent;
-
-        TouchInputData previous_data_;
     };
 }

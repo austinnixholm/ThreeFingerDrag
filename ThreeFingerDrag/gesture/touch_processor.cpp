@@ -1,18 +1,22 @@
-#include "touch_gestures.h"
-#include "../notification/popups.h"
+#include "touch_processor.h"
 #include <future>
 
-namespace Gestures
+namespace Touchpad
 {
-    GestureProcessor::GestureProcessor()
+    TouchProcessor::TouchProcessor()
     {
-        touchActivityEvent.AddListener(std::bind(&GestureListeners::TouchActivityListener::OnTouchActivity,
-                                                 &activityListener, std::placeholders::_1));
-        touchUpEvent.AddListener(std::bind(&GestureListeners::TouchUpListener::OnTouchUp, &touchUpListener,
-                                           std::placeholders::_1));
+        touchActivityEvent.AddListener(std::bind(
+            &GestureListeners::TouchActivityListener::OnTouchActivity,
+            &activityListener,
+            std::placeholders::_1));
+        
+        touchUpEvent.AddListener(std::bind(
+            &GestureListeners::TouchUpListener::OnTouchUp,
+            &touchUpListener,
+            std::placeholders::_1));
     }
 
-    void GestureProcessor::ParseRawTouchData(const LPARAM lParam)
+    void TouchProcessor::ParseRawTouchData(const LPARAM lParam)
     {
         auto a = std::async(std::launch::async, [&] { InterpretRawInput((HRAWINPUT)lParam); });
     }
@@ -22,7 +26,7 @@ namespace Gestures
      * \param hRawInputHandle Handle to the raw input.
      * \return A struct containing the touchpad input data.
      */
-    void GestureProcessor::InterpretRawInput(const HRAWINPUT hRawInputHandle)
+    void TouchProcessor::InterpretRawInput(const HRAWINPUT hRawInputHandle)
     {
         // Initialize touchpad input data struct with default values.
         TouchInputData data{};
@@ -99,7 +103,6 @@ namespace Gestures
 
         // Loop through input value caps and retrieve touchpad data.
         ULONG value;
-        UINT scan_time = 0;
         UINT contact_count = 0;
 
         TouchPoint contact{INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
@@ -186,6 +189,9 @@ namespace Gestures
         data.contacts = contacts;
         data.contact_count = contact_count;
 
+        const auto config = GlobalConfig::GetInstance();
+        const TouchInputData previous_data_ = config->GetPreviousTouchData();
+        
         // Fire touch up event if there are no valid contact points on the touchpad surface on this report
         const bool previousHasContact = TouchPointsMadeContact(previous_data_.contacts);
         const bool hasContact = TouchPointsMadeContact(contacts);
@@ -198,15 +204,14 @@ namespace Gestures
             return;
         }
         touchActivityEvent.RaiseEvent(TouchActivityEventArgs(time, &data, previous_data_));
-        GlobalConfig::GetInstance()->SetLastGesture(time);
-        previous_data_ = data;
-        return;
+        config->SetLastGesture(time);
+        config->SetPreviousTouchData(data);
     }
 
     /**
      * \returns true if any of the given touch points are contacting the surface of the touchpad.
      */
-    bool GestureProcessor::TouchPointsMadeContact(const std::vector<TouchPoint>& points)
+    bool TouchProcessor::TouchPointsMadeContact(const std::vector<TouchPoint>& points)
     {
         return std::any_of(points.begin(), points.end(), [](TouchPoint p)
         {

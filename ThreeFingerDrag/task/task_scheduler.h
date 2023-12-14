@@ -14,7 +14,7 @@ public:
     static void DeleteTask(const std::string& taskName);
 };
 
-bool TaskScheduler::CreateLoginTask(const std::string& taskName, const std::string& exePath) {
+inline bool TaskScheduler::CreateLoginTask(const std::string& taskName, const std::string& exePath) {
     // Get current user name
     wchar_t username[UNLEN + 1];
     DWORD username_len = UNLEN + 1;
@@ -86,7 +86,7 @@ bool TaskScheduler::CreateLoginTask(const std::string& taskName, const std::stri
     return true;
 }
 
-void TaskScheduler::DeleteTask(const std::string& taskName) {
+inline void TaskScheduler::DeleteTask(const std::string& taskName) {
     // Initialize COM
     CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
@@ -110,7 +110,7 @@ void TaskScheduler::DeleteTask(const std::string& taskName) {
     CoUninitialize();
 }
 
-bool TaskScheduler::TaskExists(const std::string& taskName) {
+inline bool TaskScheduler::TaskExists(const std::string& taskName) {
     // Initialize COM
     CoInitializeEx(NULL, COINIT_MULTITHREADED);
 

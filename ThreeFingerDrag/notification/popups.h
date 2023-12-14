@@ -1,5 +1,5 @@
 #pragma once
-#include "../logging/logger.h"
+#include <string>
 
 /**
  * \brief A class for displaying various popups in the application.

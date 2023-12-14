@@ -120,3 +120,16 @@ void GlobalConfig::SetLastGesture(std::chrono::time_point<std::chrono::steady_cl
 {
     last_gesture_ = time;
 }
+
+TouchInputData GlobalConfig::GetPreviousTouchData() const
+{
+    return previous_touch_data_;
+}
+
+void GlobalConfig::SetPreviousTouchData(TouchInputData data)
+{
+    previous_touch_data_ = std::move(data);
+}
+
+
+

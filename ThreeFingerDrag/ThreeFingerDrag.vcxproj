@@ -73,6 +73,9 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)\build\</OutDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <GenerateManifest>true</GenerateManifest>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -150,8 +153,8 @@
     <ClInclude Include="task\task_scheduler.h" />
     <ClInclude Include="ThreeFingerDrag.h" />
     <ClInclude Include="data\touch_data.h" />
-    <ClInclude Include="gesture\touch_gestures.h" />
-    <ClInclude Include="gesture\touch_listeners.h" />
+    <ClInclude Include="gesture\touch_processor.h" />
+    <ClInclude Include="gesture\event_listeners.h" />
     <ClInclude Include="notification\wintoastlib.h" />
   </ItemGroup>
   <ItemGroup>
@@ -160,7 +163,7 @@
     <ClCompile Include="mouse\cursor.cpp" />
     <ClCompile Include="notification\popups.cpp" />
     <ClCompile Include="ThreeFingerDrag.cpp" />
-    <ClCompile Include="gesture\touch_gestures.cpp" />
+    <ClCompile Include="gesture\touch_processor.cpp" />
     <ClCompile Include="notification\wintoastlib.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -1,7 +1,7 @@
 #pragma once
+#include "../config/globalconfig.h"
 #include "../event/touch_events.h"
 #include "../mouse/cursor.h"
-#include "../notification/popups.h"
 #include <array>
 #include <numeric>
 
@@ -11,7 +11,6 @@ namespace GestureListeners
     constexpr auto MIN_VALID_TOUCH_CONTACTS = 1;
     constexpr auto INACTIVITY_THRESHOLD_MS = 50;
     constexpr auto GESTURE_START_THRESHOLD_MS = 20;
-    constexpr auto CANCELLATION_TIME_MS = 650;
 
     static void CancelGesture()
     {
@@ -24,7 +23,7 @@ namespace GestureListeners
     class TouchActivityListener
     {
     public:
-        void OnTouchActivity(TouchActivityEventArgs args)
+        void OnTouchActivity(const TouchActivityEventArgs& args)
         {
             GlobalConfig* config = GlobalConfig::GetInstance();
 
@@ -62,7 +61,6 @@ namespace GestureListeners
 
             // Loop through each touch contact
             int valid_touches = 0;
-            std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> distances = {0.0};
             for (int i = 0; i < NUM_TOUCH_CONTACTS_REQUIRED; i++)
             {
                 if (i > args.previous_data.contacts.size() - 1)
@@ -71,6 +69,9 @@ namespace GestureListeners
                 const auto& contact = args.data->contacts[i];
                 const auto& previous_contact = args.previous_data.contacts[i];
 
+                if (!contact.on_surface || !previous_contact.on_surface)
+                    continue;
+                
                 // Only compare identical touch contact points
                 if (contact.contact_id != previous_contact.contact_id)
                     continue;
@@ -93,9 +94,6 @@ namespace GestureListeners
                     // Accumulate the movement delta for the current finger
                     accumulated_delta_x[i] += x_diff;
                     accumulated_delta_y[i] += y_diff;
-
-                    // Calculate the distance of the current finger from the previous position
-                    distances[i] = std::sqrt(x_diff * x_diff + y_diff * y_diff);
                 }
             }
 
@@ -113,6 +111,13 @@ namespace GestureListeners
             // Move the mouse pointer based on the calculated vector
             Cursor::MoveCursor(total_delta_x, total_delta_y);
 
+            // Start dragging if left mouse is not already down.
+            if (!config->IsDragging())
+            {
+                Cursor::LeftMouseDown();
+                config->SetDragging(true);
+            }
+
             // Set timestamp for when any cursor movement occurred
             const auto change = std::abs(total_delta_x + total_delta_y);
             if (change > 0)
@@ -122,26 +127,18 @@ namespace GestureListeners
                 accumulated_delta_x.fill(0);
                 accumulated_delta_y.fill(0);
             }
-
-            // Start dragging if left mouse is not already down.
-            if (!config->IsDragging())
-            {
-                Cursor::LeftMouseDown();
-                config->SetDragging(true);
-            }
         }
 
     private:
         std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> accumulated_delta_x = {0.0};
         std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> accumulated_delta_y = {0.0};
-        // Time point for gesture start
         std::chrono::time_point<std::chrono::steady_clock> gesture_start_;
     };
 
     class TouchUpListener
     {
     public:
-        void OnTouchUp(TouchUpEventArgs args)
+        void OnTouchUp(const TouchUpEventArgs& args)
         {
             GlobalConfig* config = GlobalConfig::GetInstance();
             config->SetGestureStarted(false);
@@ -155,7 +152,7 @@ namespace GestureListeners
             const float ms_since_last_movement = duration.count() * 1000.0f;
 
             // If there hasn't been any movement for same amount of time we will delay, then cancel immediately
-            if (ms_since_last_movement >= CANCELLATION_TIME_MS)
+            if (ms_since_last_movement >= static_cast<float>(config->GetCancellationDelayMs()))
             {
                 CancelGesture();
                 return;

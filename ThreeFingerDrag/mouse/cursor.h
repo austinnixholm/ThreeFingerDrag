@@ -1,6 +1,5 @@
 #pragma once
 #include "../framework.h"
-#include "../config/globalconfig.h"
 
 class Cursor
 {

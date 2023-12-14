@@ -4,7 +4,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
-#include "gesture/touch_gestures.h"
+#include "gesture\touch_processor.h"
 #include "data/ini.h"
 #include "config/globalconfig.h"
 

@@ -1,6 +1,6 @@
 #include "ThreeFingerDrag.h"
 
-using namespace Gestures;
+using namespace Touchpad;
 using namespace WinToastLib;
 
 // Constants
@@ -38,7 +38,7 @@ WCHAR settings_title_text[MAX_LOAD_STRING_LENGTH];
 WCHAR main_window_class_name[MAX_LOAD_STRING_LENGTH];
 WCHAR settings_window_class_name[MAX_LOAD_STRING_LENGTH];
 NOTIFYICONDATA tray_icon_data;
-GestureProcessor gesture_processor;
+TouchProcessor touch_processor;
 std::thread update_settings_thread;
 std::thread touch_activity_thread;
 BOOL application_running = TRUE;
@@ -149,11 +149,15 @@ BOOL InitInstance(const HINSTANCE hInstance)
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    static UINT taskbar_restarted;
     switch (message)
     {
+    case WM_CREATE:
+        taskbar_restarted = RegisterWindowMessage(TEXT("TaskbarCreated"));
+        break;
     // Raw touch device input
     case WM_INPUT:
-        gesture_processor.ParseRawTouchData(lParam);
+        touch_processor.ParseRawTouchData(lParam);
         break;
 
     // Notify Icon
@@ -190,6 +194,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         PostQuitMessage(0);
         break;
     default:
+        if (message == taskbar_restarted)
+        {
+            Shell_NotifyIcon(NIM_DELETE, &tray_icon_data);
+            InitializeGUI();
+            Shell_NotifyIcon(NIM_ADD, &tray_icon_data);
+            break;
+        }
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
@@ -350,7 +361,7 @@ bool InitializeGUI()
     HWND settings_spinner_hwnd = CreateWindowW(L"msctls_updown32", NULL,
                                                WS_CHILD | WS_VISIBLE | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_SETBUDDYINT
                                                | UDS_NOTHOUSANDS,
-                                               pos_x, pos_y, 0, label_height, 
+                                               pos_x, pos_y, 0, label_height,
                                                settings_hwnd, (HMENU)ID_CANCELLATION_DELAY_SPINNER, current_instance,
                                                NULL);
 
@@ -616,7 +627,7 @@ void AddStartupTask()
         Popups::DisplayInfoMessage("Startup task already exists!");
         return;
     }
-    
+
     if (TaskScheduler::CreateLoginTask("ThreeFingerDrag", Application::ExePath().u8string()))
         Popups::DisplayInfoMessage("Startup task has been created successfully.");
     else
@@ -700,7 +711,8 @@ void PromptUserForStartupPreference()
 {
     if (Popups::DisplayPrompt("Would you like run ThreeFingerDrag on startup of Windows?", "ThreeFingerDrag"))
         AddStartupTask();
-    Popups::ShowToastNotification(L"To change your sensitivity, access your settings via the tray icon.", L"Welcome to ThreeFingerDrag!");
+    Popups::ShowToastNotification(L"To change your sensitivity, access your settings via the tray icon.",
+                                  L"Welcome to ThreeFingerDrag!");
 }
 
 void PerformAdditionalSteps()
