@@ -9,7 +9,7 @@ namespace Touchpad
             &EventListeners::TouchActivityListener::OnTouchActivity,
             &activityListener,
             std::placeholders::_1));
-        
+
         touchUpEvent.AddListener(std::bind(
             &EventListeners::TouchUpListener::OnTouchUp,
             &touchUpListener,
@@ -191,7 +191,7 @@ namespace Touchpad
 
         const auto config = GlobalConfig::GetInstance();
         const TouchInputData previous_data_ = config->GetPreviousTouchData();
-        
+
         // Fire touch up event if there are no valid contact points on the touchpad surface on this report
         const bool previousHasContact = TouchPointsMadeContact(previous_data_.contacts);
         const bool hasContact = TouchPointsMadeContact(contacts);

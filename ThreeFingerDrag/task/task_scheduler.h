@@ -7,14 +7,16 @@
 #include <taskschd.h>
 #include <Lmcons.h>
 
-class TaskScheduler {
+class TaskScheduler
+{
 public:
     static bool TaskExists(const std::string& taskName);
     static bool CreateLoginTask(const std::string& taskName, const std::string& exePath);
     static void DeleteTask(const std::string& taskName);
 };
 
-inline bool TaskScheduler::CreateLoginTask(const std::string& taskName, const std::string& exePath) {
+inline bool TaskScheduler::CreateLoginTask(const std::string& taskName, const std::string& exePath)
+{
     // Get current user name
     wchar_t username[UNLEN + 1];
     DWORD username_len = UNLEN + 1;
@@ -63,12 +65,15 @@ inline bool TaskScheduler::CreateLoginTask(const std::string& taskName, const st
 
     // Register Task
     IRegisteredTask* pRegisteredTask = NULL;
-    HRESULT hr = pRootFolder->RegisterTaskDefinition(_bstr_t(taskName.c_str()), pTask, TASK_CREATE_OR_UPDATE, _variant_t(), _variant_t(), TASK_LOGON_INTERACTIVE_TOKEN, _variant_t(), &pRegisteredTask);
+    HRESULT hr = pRootFolder->RegisterTaskDefinition(_bstr_t(taskName.c_str()), pTask, TASK_CREATE_OR_UPDATE,
+                                                     _variant_t(), _variant_t(), TASK_LOGON_INTERACTIVE_TOKEN,
+                                                     _variant_t(), &pRegisteredTask);
 
-    if (FAILED(hr)) {
+    if (FAILED(hr))
+    {
         _com_error err(hr);
         LPCTSTR errMsg = err.ErrorMessage();
-        std::wcout << L"Failed to create task. Error: " << errMsg << std::endl;
+        std::wcout << L"Failed to create task. Error: " << errMsg << '\n';
         return false;
     }
     pRegisteredTask->Release();
@@ -86,7 +91,8 @@ inline bool TaskScheduler::CreateLoginTask(const std::string& taskName, const st
     return true;
 }
 
-inline void TaskScheduler::DeleteTask(const std::string& taskName) {
+inline void TaskScheduler::DeleteTask(const std::string& taskName)
+{
     // Initialize COM
     CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
@@ -110,7 +116,8 @@ inline void TaskScheduler::DeleteTask(const std::string& taskName) {
     CoUninitialize();
 }
 
-inline bool TaskScheduler::TaskExists(const std::string& taskName) {
+inline bool TaskScheduler::TaskExists(const std::string& taskName)
+{
     // Initialize COM
     CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
@@ -129,7 +136,8 @@ inline bool TaskScheduler::TaskExists(const std::string& taskName) {
     IRegisteredTask* pRegisteredTask = NULL;
     HRESULT hr = pRootFolder->GetTask(_bstr_t(taskName.c_str()), &pRegisteredTask);
 
-    if (!SUCCEEDED(hr)) {
+    if (!SUCCEEDED(hr))
+    {
         pRootFolder->Release();
         pService->Release();
         CoUninitialize();

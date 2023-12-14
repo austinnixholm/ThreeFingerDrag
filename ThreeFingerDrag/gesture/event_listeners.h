@@ -80,7 +80,7 @@ namespace EventListeners
                 const double x_diff = contact.x - previous_contact.x;
                 const double y_diff = contact.y - previous_contact.y;
 
-                // Check if any movement was present since the last received raw input
+                // Check if any valid movement was present
                 if (std::abs(x_diff) > 0 || std::abs(y_diff) > 0)
                 {
                     // Cancel immediately if a previous cancellation has begun, and this is a non-gesture movement
@@ -89,8 +89,8 @@ namespace EventListeners
                         CancelGesture();
                         return;
                     }
-                    elapsed = time - valid_movement_times[i];
-                    valid_movement_times[i] = time;
+                    elapsed = time - valid_movement_times_[i];
+                    valid_movement_times_[i] = time;
 
                     // Ignore initial movement of contact point if inactivity, to prevent jitter
                     if (elapsed.count() * 1000.0f > INACTIVITY_THRESHOLD_MS)
@@ -99,8 +99,8 @@ namespace EventListeners
                     valid_touches++;
 
                     // Accumulate the movement delta for the current finger
-                    accumulated_delta_x[i] += x_diff;
-                    accumulated_delta_y[i] += y_diff;
+                    accumulated_delta_x_[i] += x_diff;
+                    accumulated_delta_y_[i] += y_diff;
                 }
             }
 
@@ -110,9 +110,11 @@ namespace EventListeners
 
             // Apply movement acceleration 
             const double gesture_speed = config->GetGestureSpeed() / 100.0;
-            const double total_delta_x = std::accumulate(accumulated_delta_x.begin(), accumulated_delta_x.end(), 0.0) *
+            const double total_delta_x = std::accumulate(accumulated_delta_x_.begin(), accumulated_delta_x_.end(), 0.0)
+                *
                 gesture_speed;
-            const double total_delta_y = std::accumulate(accumulated_delta_y.begin(), accumulated_delta_y.end(), 0.0) *
+            const double total_delta_y = std::accumulate(accumulated_delta_y_.begin(), accumulated_delta_y_.end(), 0.0)
+                *
                 gesture_speed;
 
             config->SetCancellationStarted(false);
@@ -140,16 +142,17 @@ namespace EventListeners
 
                 // Reset accumulated x/y data if necessary 
                 if (change_x >= 1.0)
-                    accumulated_delta_x.fill(0);
+                    accumulated_delta_x_.fill(0);
                 if (change_y >= 1.0)
-                    accumulated_delta_y.fill(0);
+                    accumulated_delta_y_.fill(0);
             }
         }
 
     private:
-        std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> accumulated_delta_x = {0.0};
-        std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> accumulated_delta_y = {0.0};
-        std::array<std::chrono::time_point<std::chrono::steady_clock>, NUM_TOUCH_CONTACTS_REQUIRED> valid_movement_times;
+        std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> accumulated_delta_x_ = {0.0};
+        std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> accumulated_delta_y_ = {0.0};
+        std::array<std::chrono::time_point<std::chrono::steady_clock>, NUM_TOUCH_CONTACTS_REQUIRED>
+        valid_movement_times_;
         std::chrono::time_point<std::chrono::steady_clock> gesture_start_;
     };
 

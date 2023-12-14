@@ -4,7 +4,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
-#include "gesture\touch_processor.h"
+#include "gesture/touch_processor.h"
 #include "data/ini.h"
 #include "config/globalconfig.h"
 
@@ -34,7 +34,7 @@ namespace Application
         char* env_path;
         const errno_t err = _dupenv_s(&env_path, &len, "LOCALAPPDATA");
 
-        std::string directory_path = std::string(env_path);
+        auto directory_path = std::string(env_path);
         directory_path += "\\";
         directory_path += "ThreeFingerDrag";
 

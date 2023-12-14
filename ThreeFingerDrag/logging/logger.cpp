@@ -66,12 +66,12 @@ void Logger::WriteLog(const std::string& type, const std::string& message)
         const std::string timestamp_str = ss.str();
 
         // Write the log message to the file with the timestamp
-        log_file_ << timestamp_str << " " << type << " " << message << std::endl;
+        log_file_ << timestamp_str << " " << type << " " << message << '\n';
     }
     else
     {
         // Write the log message to the file without the timestamp
-        log_file_ << type << " - " << message << std::endl;
+        log_file_ << type << " - " << message << '\n';
     }
 }
 

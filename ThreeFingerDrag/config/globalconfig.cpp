@@ -76,7 +76,7 @@ std::chrono::time_point<std::chrono::steady_clock> GlobalConfig::GetCancellation
     return cancellation_time_;
 }
 
-void GlobalConfig::SetCancellationTime(std::chrono::time_point<std::chrono::steady_clock> time)
+void GlobalConfig::SetCancellationTime(const std::chrono::time_point<std::chrono::steady_clock> time)
 {
     cancellation_time_ = time;
 }
@@ -86,7 +86,7 @@ std::chrono::time_point<std::chrono::steady_clock> GlobalConfig::GetLastValidMov
     return last_valid_movement_;
 }
 
-void GlobalConfig::SetLastValidMovement(std::chrono::time_point<std::chrono::steady_clock> time)
+void GlobalConfig::SetLastValidMovement(const std::chrono::time_point<std::chrono::steady_clock> time)
 {
     last_valid_movement_ = time;
 }
@@ -96,7 +96,7 @@ std::chrono::time_point<std::chrono::steady_clock> GlobalConfig::GetLastGesture(
     return last_gesture_;
 }
 
-void GlobalConfig::SetLastGesture(std::chrono::time_point<std::chrono::steady_clock> time)
+void GlobalConfig::SetLastGesture(const std::chrono::time_point<std::chrono::steady_clock> time)
 {
     last_gesture_ = time;
 }
@@ -110,6 +110,3 @@ void GlobalConfig::SetPreviousTouchData(TouchInputData&& data)
 {
     previous_touch_data_ = std::move(data);
 }
-
-
-

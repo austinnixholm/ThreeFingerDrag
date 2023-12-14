@@ -47,8 +47,6 @@ public:
 
     /**
      * @brief Returns the singleton instance of the logger.
-     * @param localAppDataFolderName The application folder name.
-     * @param logFileName The name of the log file.
      * @return The logger instance.
      */
     static Logger& GetInstance();

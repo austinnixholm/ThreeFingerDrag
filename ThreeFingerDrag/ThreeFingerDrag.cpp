@@ -246,7 +246,7 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
             if (loword_param < TB_THUMBTRACK)
             {
                 // Trackbar value changed
-                config->SetGestureSpeed( SendMessage((HWND)lParam, TBM_GETPOS, 0, 0));
+                config->SetGestureSpeed(SendMessage((HWND)lParam, TBM_GETPOS, 0, 0));
                 Application::WriteConfiguration();
             }
         }
@@ -261,7 +261,7 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 
     case WM_ERASEBKGND:
         {
-            HDC hdc = (HDC)wParam;
+            auto hdc = (HDC)wParam;
             RECT rect;
             GetClientRect(hWnd, &rect);
             FillRect(hdc, &rect, white_brush);
