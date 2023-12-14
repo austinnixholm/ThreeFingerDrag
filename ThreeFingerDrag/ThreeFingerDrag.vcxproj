@@ -149,7 +149,7 @@
     <ClInclude Include="logging\logger.h" />
     <ClInclude Include="mouse\cursor.h" />
     <ClInclude Include="notification\popups.h" />
-    <ClInclude Include="Resource.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="task\task_scheduler.h" />
     <ClInclude Include="ThreeFingerDrag.h" />

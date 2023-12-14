@@ -54,7 +54,7 @@ public:
     void SetCancellationTime(std::chrono::time_point<std::chrono::steady_clock> time);
     void SetLastValidMovement(std::chrono::time_point<std::chrono::steady_clock> time);
     void SetLastGesture(std::chrono::time_point<std::chrono::steady_clock> time);
-    void SetPreviousTouchData(TouchInputData data);
+    void SetPreviousTouchData(TouchInputData&& data);
 };
 
 #endif // GLOBALCONFIG_H

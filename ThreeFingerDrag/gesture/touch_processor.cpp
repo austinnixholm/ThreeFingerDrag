@@ -205,7 +205,7 @@ namespace Touchpad
         }
         touchActivityEvent.RaiseEvent(TouchActivityEventArgs(time, &data, previous_data_));
         config->SetLastGesture(time);
-        config->SetPreviousTouchData(data);
+        config->SetPreviousTouchData(std::move(data));
     }
 
     /**

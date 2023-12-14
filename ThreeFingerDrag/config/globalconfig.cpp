@@ -126,7 +126,7 @@ TouchInputData GlobalConfig::GetPreviousTouchData() const
     return previous_touch_data_;
 }
 
-void GlobalConfig::SetPreviousTouchData(TouchInputData data)
+void GlobalConfig::SetPreviousTouchData(TouchInputData&& data)
 {
     previous_touch_data_ = std::move(data);
 }
