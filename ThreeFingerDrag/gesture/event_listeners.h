@@ -43,14 +43,14 @@ namespace EventListeners
                 return;
 
             // Calculate the time elapsed since the initial touchpad contact
-            std::chrono::duration<float> duration = time - gesture_start_;
-            const float ms_since_start = duration.count() * 1000.0f;
+            std::chrono::duration<float> elapsed = time - gesture_start_;
+            const float ms_since_start = elapsed.count() * 1000.0f;
 
             // Calculate the time elapsed since previous touchpad data was received
-            duration = time - config->GetLastGesture();
-            const float ms_since_last_gesture = duration.count() * 1000.0f;
+            elapsed = time - config->GetLastGesture();
+            const float ms_since_last_gesture = elapsed.count() * 1000.0f;
 
-            // Prevents initial jumpy movement due to old data comparison
+            // Prevent initial movement jitter 
             if (ms_since_last_gesture > INACTIVITY_THRESHOLD_MS)
                 return;
 
@@ -71,7 +71,7 @@ namespace EventListeners
 
                 if (!contact.on_surface || !previous_contact.on_surface)
                     continue;
-                
+
                 // Only compare identical touch contact points
                 if (contact.contact_id != previous_contact.contact_id)
                     continue;
@@ -89,6 +89,13 @@ namespace EventListeners
                         CancelGesture();
                         return;
                     }
+                    elapsed = time - valid_movement_times[i];
+                    valid_movement_times[i] = time;
+
+                    // Ignore initial movement of contact point if inactivity, to prevent jitter
+                    if (elapsed.count() * 1000.0f > INACTIVITY_THRESHOLD_MS)
+                        continue;
+
                     valid_touches++;
 
                     // Accumulate the movement delta for the current finger
@@ -102,9 +109,11 @@ namespace EventListeners
                 return;
 
             // Apply movement acceleration 
-            const double gesture_speed = config ->GetGestureSpeed() / 100.0;
-            const double total_delta_x = std::accumulate(accumulated_delta_x.begin(), accumulated_delta_x.end(), 0.0) * gesture_speed;
-            const double total_delta_y = std::accumulate(accumulated_delta_y.begin(), accumulated_delta_y.end(), 0.0) * gesture_speed;
+            const double gesture_speed = config->GetGestureSpeed() / 100.0;
+            const double total_delta_x = std::accumulate(accumulated_delta_x.begin(), accumulated_delta_x.end(), 0.0) *
+                gesture_speed;
+            const double total_delta_y = std::accumulate(accumulated_delta_y.begin(), accumulated_delta_y.end(), 0.0) *
+                gesture_speed;
 
             config->SetCancellationStarted(false);
 
@@ -117,7 +126,7 @@ namespace EventListeners
                 Cursor::LeftMouseDown();
                 config->SetDragging(true);
             }
-            
+
             const auto change_x = std::abs(total_delta_x);
             const auto change_y = std::abs(total_delta_y);
             const auto total_change = change_x + change_y;
@@ -128,7 +137,7 @@ namespace EventListeners
                 // Set timestamp for last valid movement
                 config->SetLastValidMovement(time);
                 config->SetLastGesture(time);
-                
+
                 // Reset accumulated x/y data if necessary 
                 if (change_x >= 1.0)
                     accumulated_delta_x.fill(0);
@@ -140,6 +149,7 @@ namespace EventListeners
     private:
         std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> accumulated_delta_x = {0.0};
         std::array<double, NUM_TOUCH_CONTACTS_REQUIRED> accumulated_delta_y = {0.0};
+        std::array<std::chrono::time_point<std::chrono::steady_clock>, NUM_TOUCH_CONTACTS_REQUIRED> valid_movement_times;
         std::chrono::time_point<std::chrono::steady_clock> gesture_start_;
     };
 

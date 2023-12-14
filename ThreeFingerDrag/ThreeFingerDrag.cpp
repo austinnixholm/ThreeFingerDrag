@@ -39,7 +39,6 @@ WCHAR main_window_class_name[MAX_LOAD_STRING_LENGTH];
 WCHAR settings_window_class_name[MAX_LOAD_STRING_LENGTH];
 NOTIFYICONDATA tray_icon_data;
 TouchProcessor touch_processor;
-std::thread update_settings_thread;
 std::thread touch_activity_thread;
 BOOL application_running = TRUE;
 BOOL gui_initialized = FALSE;
@@ -51,7 +50,7 @@ GlobalConfig* config = GlobalConfig::GetInstance();
 // Forward declarations
 
 ATOM RegisterWindowClass(HINSTANCE, WCHAR*, WNDPROC);
-BOOL InitInstance(HINSTANCE);
+BOOL InitInstance();
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK SettingsWndProc(HWND, UINT, WPARAM, LPARAM);
 
@@ -60,8 +59,6 @@ void ShowSettingsWindow();
 void AddStartupTask();
 void RemoveStartupTask();
 void RemoveStartupRegistryKey();
-void ReadPrecisionTouchPadInfo();
-void ReadCursorSpeed();
 void StartPeriodicUpdateThreads();
 void HandleUncaughtExceptions();
 void PerformAdditionalSteps();
@@ -91,7 +88,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     InitializeConfiguration();
 
-    if (!InitInstance(current_instance))
+    if (!InitInstance())
     {
         ERROR("Application initialization failed.");
         return FALSE;
@@ -112,13 +109,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     // Join threads
     application_running = false;
-    update_settings_thread.join();
-    touch_activity_thread.join();
-
+    if (touch_activity_thread.joinable())
+        touch_activity_thread.join();
     return static_cast<int>(msg.wParam);
 }
 
-BOOL InitInstance(const HINSTANCE hInstance)
+BOOL InitInstance()
 {
     // Initialize WinToast notifications
     if (!InitializeWindowsNotifications())
@@ -250,9 +246,7 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
             if (loword_param < TB_THUMBTRACK)
             {
                 // Trackbar value changed
-                int tbPos = SendMessage((HWND)lParam, TBM_GETPOS, 0, 0);
-
-                config->SetGestureSpeed(tbPos);
+                config->SetGestureSpeed( SendMessage((HWND)lParam, TBM_GETPOS, 0, 0));
                 Application::WriteConfiguration();
             }
         }
@@ -260,7 +254,7 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 
     case WM_CTLCOLORSTATIC:
         {
-            HDC hdcStatic = (HDC)wParam;
+            const auto hdcStatic = (HDC)wParam;
             SetBkColor(hdcStatic, RGB(255, 255, 255));
             return (INT_PTR)white_brush;
         }
@@ -334,9 +328,9 @@ bool InitializeGUI()
         NULL
     );
 
-    const int textbox_width = 56, textbox_height = 24;
-    const int label_height = 20, trackbar_height = 46;
-    const int margin = 32;
+    constexpr int textbox_width = 56, textbox_height = 24;
+    constexpr int label_height = 20, trackbar_height = 46;
+    constexpr int margin = 32;
     int pos_x = 8, pos_y = 8;
 
     // Run on startup checkbox
@@ -478,17 +472,6 @@ void ShowSettingsWindow()
  */
 void StartPeriodicUpdateThreads()
 {
-    // Check for any updates to the user's precision touchpad settings every few seconds
-    update_settings_thread = std::thread([&]
-    {
-        while (application_running)
-        {
-            std::this_thread::sleep_for(UPDATE_SETTINGS_PERIOD_MS);
-            ReadPrecisionTouchPadInfo();
-            ReadCursorSpeed();
-        }
-    });
-
     // Check if the dragging action needs to be completed
     touch_activity_thread = std::thread([&]
     {
@@ -512,63 +495,6 @@ void StartPeriodicUpdateThreads()
         }
     });
 }
-
-/**
- * \brief Reads and updates touchpad cursor speed information from the Precision Touchpad registry.
- *
- * This method opens the Precision Touchpad registry key, reads the cursor speed value,
- * and updates the internal cursor speed value used by the program. The cursor speed
- * value is scaled from the initial range of [0, 20] to [0.0, 1.0] to match the range used by
- * the gesture movement calculation.
- */
-void ReadPrecisionTouchPadInfo()
-{
-    // Open the Precision Touchpad key in the registry
-    HKEY touch_pad_key;
-    LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\PrecisionTouchPad", 0,
-                               KEY_READ, &touch_pad_key);
-    if (result != ERROR_SUCCESS)
-    {
-        ERROR("Failed to open Precision Touchpad registry key.");
-        return;
-    }
-
-    // Read the cursor speed value from the registry
-    DWORD touch_speed = 0;
-    DWORD data_size = sizeof(DWORD);
-    result = RegQueryValueEx(touch_pad_key, L"CursorSpeed", nullptr, nullptr, reinterpret_cast<LPBYTE>(&touch_speed),
-                             &data_size);
-    if (result != ERROR_SUCCESS)
-    {
-        ERROR("Failed to read cursor speed value from registry.");
-        RegCloseKey(touch_pad_key);
-        return;
-    }
-    // Changes value from range [0, 20] to range [0.0 -> 1.0]
-    config->SetPrecisionTouchCursorSpeed(touch_speed * 5 / 100.0f);
-}
-
-/**
- * \brief Reads and updates mouse cursor speed information from Windows settings.
- *
- * The cursor speed value is scaled from the initial range of [0, 20] to [0.0, 1.0]
- * to match the range used by the gesture movement calculation.
- */
-void ReadCursorSpeed()
-{
-    int mouse_speed;
-    const bool result = SystemParametersInfo(SPI_GETMOUSESPEED, 0, &mouse_speed, 0);
-
-    if (!result)
-    {
-        ERROR("Failed to read cursor speed from system.");
-        return;
-    }
-
-    // Changes value from range [0, 20] to range [0.0 -> 1.0]
-    config->SetMouseCursorSpeed(mouse_speed * 5 / 100.0f);
-}
-
 
 /**
  * \brief Registers the first available precision touchpad as a raw input device, to listen for WM_INPUT events.
@@ -693,8 +619,6 @@ void InitializeConfiguration()
 {
     // Read user configuration values
     Application::ReadConfiguration();
-    ReadPrecisionTouchPadInfo();
-    ReadCursorSpeed();
 
     // Initialize global strings
     LoadStringW(current_instance, IDS_APP_TITLE, title_bar_text, MAX_LOAD_STRING_LENGTH);

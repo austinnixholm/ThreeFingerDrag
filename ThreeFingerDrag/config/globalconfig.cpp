@@ -31,26 +31,6 @@ void GlobalConfig::SetCancellationDelayMs(int delay)
     cancellation_delay_ms_ = delay;
 }
 
-double GlobalConfig::GetPrecisionTouchCursorSpeed() const
-{
-    return precision_touch_cursor_speed_;
-}
-
-void GlobalConfig::SetPrecisionTouchCursorSpeed(double speed)
-{
-    precision_touch_cursor_speed_ = speed;
-}
-
-double GlobalConfig::GetMouseCursorSpeed() const
-{
-    return mouse_cursor_speed_;
-}
-
-void GlobalConfig::SetMouseCursorSpeed(double speed)
-{
-    mouse_cursor_speed_ = speed;
-}
-
 double GlobalConfig::GetGestureSpeed() const
 {
     return gesture_speed_;

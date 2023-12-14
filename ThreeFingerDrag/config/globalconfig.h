@@ -33,8 +33,6 @@ public:
     static GlobalConfig* GetInstance();
 
     int GetCancellationDelayMs() const;
-    double GetPrecisionTouchCursorSpeed() const;
-    double GetMouseCursorSpeed() const;
     double GetGestureSpeed() const;
     bool IsDragging() const;
     bool IsGestureStarted() const;
@@ -45,8 +43,6 @@ public:
     TouchInputData GetPreviousTouchData() const;
 
     void SetCancellationDelayMs(int delay);
-    void SetPrecisionTouchCursorSpeed(double speed);
-    void SetMouseCursorSpeed(double speed);
     void SetGestureSpeed(double speed);
     void SetDragging(bool dragging);
     void SetGestureStarted(bool started);
