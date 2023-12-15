@@ -1,6 +1,5 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by Gestures.rc
 
 #define IDS_APP_TITLE			103
 #define IDS_SETTINGS_TITLE		104

@@ -7,12 +7,26 @@ using namespace WinToastLib;
 class WinToastHandler : public WinToastLib::IWinToastHandler
 {
 public:
-	WinToastHandler() {}
-	// Public interfaces
-	void toastActivated() const override {}
-	void toastActivated(int actionIndex) const override {}
-	void toastDismissed(WinToastDismissalReason state) const override {}
-	void toastFailed() const override {}
+    WinToastHandler()
+    {
+    }
+
+    // Public interfaces
+    void toastActivated() const override
+    {
+    }
+
+    void toastActivated(int actionIndex) const override
+    {
+    }
+
+    void toastDismissed(WinToastDismissalReason state) const override
+    {
+    }
+
+    void toastFailed() const override
+    {
+    }
 };
 
 /**
@@ -23,11 +37,11 @@ public:
  */
 void Popups::DisplayErrorMessage(const std::string& message)
 {
-	const std::wstring temp = std::wstring(message.begin(), message.end());
-	const LPCWSTR wstr_message = temp.c_str();
+    const auto temp = std::wstring(message.begin(), message.end());
+    const LPCWSTR wstr_message = temp.c_str();
 
-	MessageBox(nullptr, wstr_message, TEXT("Three Finger Drag"), MB_OK | MB_ICONERROR | MB_TOPMOST);
-	ERROR(message);
+    MessageBox(nullptr, wstr_message, TEXT("Three Finger Drag"), MB_OK | MB_ICONERROR | MB_TOPMOST);
+    ERROR(message);
 }
 
 /**
@@ -38,11 +52,11 @@ void Popups::DisplayErrorMessage(const std::string& message)
  */
 void Popups::DisplayInfoMessage(const std::string& message)
 {
-	const std::wstring temp = std::wstring(message.begin(), message.end());
-	const LPCWSTR wstr_message = temp.c_str();
+    const auto temp = std::wstring(message.begin(), message.end());
+    const LPCWSTR wstr_message = temp.c_str();
 
-	MessageBox(nullptr, wstr_message, TEXT("Three Finger Drag"), MB_OK | MB_ICONINFORMATION | MB_TOPMOST);
-	INFO(message);
+    MessageBox(nullptr, wstr_message, TEXT("Three Finger Drag"), MB_OK | MB_ICONINFORMATION | MB_TOPMOST);
+    INFO(message);
 }
 
 /**
@@ -53,11 +67,12 @@ void Popups::DisplayInfoMessage(const std::string& message)
  */
 bool Popups::DisplayPrompt(const std::string& message, const std::string& title)
 {
-	const std::wstring temp_message = std::wstring(message.begin(), message.end());
-	const std::wstring temp_title = std::wstring(title.begin(), title.end());
+    const auto temp_message = std::wstring(message.begin(), message.end());
+    const auto temp_title = std::wstring(title.begin(), title.end());
 
-	const int response = MessageBox(nullptr, temp_message.c_str(), temp_title.c_str(), MB_YESNO | MB_ICONQUESTION | MB_TOPMOST);
-	return response == IDYES;
+    const int response = MessageBox(nullptr, temp_message.c_str(), temp_title.c_str(),
+                                    MB_YESNO | MB_ICONQUESTION | MB_TOPMOST);
+    return response == IDYES;
 }
 
 /**
@@ -68,16 +83,18 @@ bool Popups::DisplayPrompt(const std::string& message, const std::string& title)
  */
 bool Popups::DisplayWarningPrompt(const std::string& message, const std::string& title)
 {
-	const std::wstring temp_message = std::wstring(message.begin(), message.end());
-	const std::wstring temp_title = std::wstring(title.begin(), title.end());
+    const auto temp_message = std::wstring(message.begin(), message.end());
+    const auto temp_title = std::wstring(title.begin(), title.end());
 
-	const int response = MessageBox(nullptr, temp_message.c_str(), temp_title.c_str(), MB_YESNO | MB_ICONWARNING | MB_TOPMOST);
-	return response == IDYES;
+    const int response = MessageBox(nullptr, temp_message.c_str(), temp_title.c_str(),
+                                    MB_YESNO | MB_ICONWARNING | MB_TOPMOST);
+    return response == IDYES;
 }
 
-void Popups::ShowToastNotification(const std::wstring& message, const std::wstring& title) {
-	WinToastTemplate templ = WinToastTemplate(WinToastTemplate::Text02);
-	templ.setTextField(title, WinToastTemplate::FirstLine);
-	templ.setTextField(message, WinToastTemplate::SecondLine);
-	WinToast::instance()->showToast(templ, new WinToastHandler());
+void Popups::ShowToastNotification(const std::wstring& message, const std::wstring& title)
+{
+    auto templ = WinToastTemplate(WinToastTemplate::Text02);
+    templ.setTextField(title, WinToastTemplate::FirstLine);
+    templ.setTextField(message, WinToastTemplate::SecondLine);
+    WinToast::instance()->showToast(templ, new WinToastHandler());
 }

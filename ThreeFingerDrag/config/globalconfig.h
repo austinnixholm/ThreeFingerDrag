@@ -1,15 +1,16 @@
 #pragma once
 #ifndef GLOBALCONFIG_H
 #define GLOBALCONFIG_H
-#include <iostream>
 #include <chrono>
+#include "../data/touch_data.h"
 
-constexpr auto DEFAULT_ACCELERATION_FACTOR = 75.0;
+constexpr auto DEFAULT_ACCELERATION_FACTOR = 15.0;
 constexpr auto DEFAULT_PRECISION_CURSOR_SPEED = 0.5;
 constexpr auto DEFAULT_MOUSE_CURSOR_SPEED = 0.5;
 constexpr auto DEFAULT_CANCELLATION_DELAY_MS = 500;
 
-class GlobalConfig {
+class GlobalConfig
+{
 private:
     double gesture_speed_;
     double precision_touch_cursor_speed_;
@@ -21,7 +22,8 @@ private:
     std::chrono::time_point<std::chrono::steady_clock> cancellation_time_;
     std::chrono::time_point<std::chrono::steady_clock> last_valid_movement_;
     std::chrono::time_point<std::chrono::steady_clock> last_gesture_;
-    static GlobalConfig* instance;
+    TouchInputData previous_touch_data_;
+    static GlobalConfig* instance_;
 
     // Private constructor
     GlobalConfig();
@@ -31,8 +33,6 @@ public:
     static GlobalConfig* GetInstance();
 
     int GetCancellationDelayMs() const;
-    double GetPrecisionTouchCursorSpeed() const;
-    double GetMouseCursorSpeed() const;
     double GetGestureSpeed() const;
     bool IsDragging() const;
     bool IsGestureStarted() const;
@@ -40,10 +40,9 @@ public:
     std::chrono::time_point<std::chrono::steady_clock> GetCancellationTime() const;
     std::chrono::time_point<std::chrono::steady_clock> GetLastValidMovement() const;
     std::chrono::time_point<std::chrono::steady_clock> GetLastGesture() const;
+    TouchInputData GetPreviousTouchData() const;
 
     void SetCancellationDelayMs(int delay);
-    void SetPrecisionTouchCursorSpeed(double speed);
-    void SetMouseCursorSpeed(double speed);
     void SetGestureSpeed(double speed);
     void SetDragging(bool dragging);
     void SetGestureStarted(bool started);
@@ -51,6 +50,7 @@ public:
     void SetCancellationTime(std::chrono::time_point<std::chrono::steady_clock> time);
     void SetLastValidMovement(std::chrono::time_point<std::chrono::steady_clock> time);
     void SetLastGesture(std::chrono::time_point<std::chrono::steady_clock> time);
+    void SetPreviousTouchData(TouchInputData&& data);
 };
 
 #endif // GLOBALCONFIG_H

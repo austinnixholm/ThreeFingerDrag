@@ -47,42 +47,50 @@ using namespace ABI::Windows::Foundation;
 using namespace ABI::Windows::UI::Notifications;
 using namespace Windows::Foundation;
 
-namespace WinToastLib {
-
-    class IWinToastHandler {
+namespace WinToastLib
+{
+    class IWinToastHandler
+    {
     public:
-        enum WinToastDismissalReason {
-            UserCanceled      = ToastDismissalReason::ToastDismissalReason_UserCanceled,
+        enum WinToastDismissalReason
+        {
+            UserCanceled = ToastDismissalReason::ToastDismissalReason_UserCanceled,
             ApplicationHidden = ToastDismissalReason::ToastDismissalReason_ApplicationHidden,
-            TimedOut          = ToastDismissalReason::ToastDismissalReason_TimedOut
+            TimedOut = ToastDismissalReason::ToastDismissalReason_TimedOut
         };
 
-        virtual ~IWinToastHandler()                                      = default;
-        virtual void toastActivated() const                              = 0;
-        virtual void toastActivated(int actionIndex) const               = 0;
+        virtual ~IWinToastHandler() = default;
+        virtual void toastActivated() const = 0;
+        virtual void toastActivated(int actionIndex) const = 0;
         virtual void toastDismissed(WinToastDismissalReason state) const = 0;
-        virtual void toastFailed() const                                 = 0;
+        virtual void toastFailed() const = 0;
     };
 
-    class WinToastTemplate {
+    class WinToastTemplate
+    {
     public:
         enum class Scenario { Default, Alarm, IncomingCall, Reminder };
+
         enum Duration { System, Short, Long };
+
         enum AudioOption { Default = 0, Silent, Loop };
+
         enum TextField { FirstLine = 0, SecondLine, ThirdLine };
 
-        enum WinToastTemplateType {
+        enum WinToastTemplateType
+        {
             ImageAndText01 = ToastTemplateType::ToastTemplateType_ToastImageAndText01,
             ImageAndText02 = ToastTemplateType::ToastTemplateType_ToastImageAndText02,
             ImageAndText03 = ToastTemplateType::ToastTemplateType_ToastImageAndText03,
             ImageAndText04 = ToastTemplateType::ToastTemplateType_ToastImageAndText04,
-            Text01         = ToastTemplateType::ToastTemplateType_ToastText01,
-            Text02         = ToastTemplateType::ToastTemplateType_ToastText02,
-            Text03         = ToastTemplateType::ToastTemplateType_ToastText03,
-            Text04         = ToastTemplateType::ToastTemplateType_ToastText04
+            Text01 = ToastTemplateType::ToastTemplateType_ToastText01,
+            Text02 = ToastTemplateType::ToastTemplateType_ToastText02,
+            Text03 = ToastTemplateType::ToastTemplateType_ToastText03,
+            Text04 = ToastTemplateType::ToastTemplateType_ToastText04
         };
 
-        enum AudioSystemFile {
+        enum AudioSystemFile
+        {
             DefaultSound,
             IM,
             Mail,
@@ -111,7 +119,8 @@ namespace WinToastLib {
             Call10,
         };
 
-        enum CropHint {
+        enum CropHint
+        {
             Square,
             Circle,
         };
@@ -170,9 +179,11 @@ namespace WinToastLib {
         CropHint _cropHint{CropHint::Square};
     };
 
-    class WinToast {
+    class WinToast
+    {
     public:
-        enum WinToastError {
+        enum WinToastError
+        {
             NoError = 0,
             NotInitialized,
             SystemNotSupported,
@@ -184,18 +195,20 @@ namespace WinToastLib {
             UnknownError
         };
 
-        enum ShortcutResult {
-            SHORTCUT_UNCHANGED   = 0,
+        enum ShortcutResult
+        {
+            SHORTCUT_UNCHANGED = 0,
             SHORTCUT_WAS_CHANGED = 1,
             SHORTCUT_WAS_CREATED = 2,
 
             SHORTCUT_MISSING_PARAMETERS = -1,
-            SHORTCUT_INCOMPATIBLE_OS    = -2,
-            SHORTCUT_COM_INIT_FAILURE   = -3,
-            SHORTCUT_CREATE_FAILED      = -4
+            SHORTCUT_INCOMPATIBLE_OS = -2,
+            SHORTCUT_COM_INIT_FAILURE = -3,
+            SHORTCUT_CREATE_FAILED = -4
         };
 
-        enum ShortcutPolicy {
+        enum ShortcutPolicy
+        {
             /* Don't check, create, or modify a shortcut. */
             SHORTCUT_POLICY_IGNORE = 0,
             /* Require a shortcut with matching AUMI, don't create or modify an existing one. */
@@ -211,7 +224,7 @@ namespace WinToastLib {
         static bool isSupportingModernFeatures();
         static bool isWin10AnniversaryOrHigher();
         static std::wstring configureAUMI(_In_ std::wstring const& companyName, _In_ std::wstring const& productName,
-                                          _In_ std::wstring const& subProduct         = std::wstring(),
+                                          _In_ std::wstring const& subProduct = std::wstring(),
                                           _In_ std::wstring const& versionInformation = std::wstring());
         static std::wstring const& strerror(_In_ WinToastError error);
         virtual bool initialize(_Out_opt_ WinToastError* error = nullptr);
@@ -229,26 +242,38 @@ namespace WinToastLib {
         void setShortcutPolicy(_In_ ShortcutPolicy policy);
 
     protected:
-        struct NotifyData {
-            NotifyData(){};
+        struct NotifyData
+        {
+            NotifyData()
+            {
+            };
+
             NotifyData(_In_ ComPtr<IToastNotification> notify, _In_ EventRegistrationToken activatedToken,
                        _In_ EventRegistrationToken dismissedToken, _In_ EventRegistrationToken failedToken) :
-                _notify(notify), _activatedToken(activatedToken), _dismissedToken(dismissedToken), _failedToken(failedToken) {}
+                _notify(notify), _activatedToken(activatedToken), _dismissedToken(dismissedToken),
+                _failedToken(failedToken)
+            {
+            }
 
-            ~NotifyData() {
+            ~NotifyData()
+            {
                 RemoveTokens();
             }
 
-            void RemoveTokens() {
-                if (!_readyForDeletion) {
+            void RemoveTokens()
+            {
+                if (!_readyForDeletion)
+                {
                     return;
                 }
 
-                if (_previouslyTokenRemoved) {
+                if (_previouslyTokenRemoved)
+                {
                     return;
                 }
 
-                if (!_notify.Get()) {
+                if (!_notify.Get())
+                {
                     return;
                 }
 
@@ -258,15 +283,18 @@ namespace WinToastLib {
                 _previouslyTokenRemoved = true;
             }
 
-            void markAsReadyForDeletion() {
+            void markAsReadyForDeletion()
+            {
                 _readyForDeletion = true;
             }
 
-            bool isReadyForDeletion() const {
+            bool isReadyForDeletion() const
+            {
                 return _readyForDeletion;
             }
 
-            IToastNotification* notification() {
+            IToastNotification* notification()
+            {
                 return _notify.Get();
             }
 
@@ -289,7 +317,8 @@ namespace WinToastLib {
         void markAsReadyForDeletion(_In_ INT64 id);
         HRESULT validateShellLinkHelper(_Out_ bool& wasChanged);
         HRESULT createShellLinkHelper();
-        HRESULT setImageFieldHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& path, _In_ bool isToastGeneric, bool isCropHintCircle);
+        HRESULT setImageFieldHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& path, _In_ bool isToastGeneric,
+                                    bool isCropHintCircle);
         HRESULT setHeroImageHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& path, _In_ bool isInlineImage);
         HRESULT setBindToastGenericHelper(_In_ IXmlDocument* xml);
         HRESULT
@@ -297,7 +326,8 @@ namespace WinToastLib {
                             _In_opt_ WinToastTemplate::AudioOption option = WinToastTemplate::AudioOption::Default);
         HRESULT setTextFieldHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& text, _In_ UINT32 pos);
         HRESULT setAttributionTextFieldHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& text);
-        HRESULT addActionHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& action, _In_ std::wstring const& arguments);
+        HRESULT addActionHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& action,
+                                _In_ std::wstring const& arguments);
         HRESULT addDurationHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& duration);
         HRESULT addScenarioHelper(_In_ IXmlDocument* xml, _In_ std::wstring const& scenario);
         ComPtr<IToastNotifier> notifier(_In_ bool* succeded) const;
