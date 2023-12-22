@@ -1,5 +1,8 @@
 #include "touch_processor.h"
 #include <future>
+#include <sstream>
+
+#include "../logging/logger.h"
 
 namespace Touchpad
 {
@@ -104,7 +107,6 @@ namespace Touchpad
 
         // Loop through input value caps and retrieve touchpad data.
         ULONG value;
-
         TouchPoint parsed_contact{INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
         for (USHORT i = 0; i < length; i++)
         {
@@ -169,7 +171,7 @@ namespace Touchpad
                 }
 
                 contacts.emplace_back(parsed_contact);
-                ids.push_back(parsed_contact.contact_id); 
+                ids.push_back(parsed_contact.contact_id);
 
                 parsed_contact = {INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
             }
@@ -181,28 +183,40 @@ namespace Touchpad
 
         std::sort(ids.begin(), ids.end());
         std::vector<TouchPoint> sorted_contacts;
-        
+
+        const auto config = GlobalConfig::GetInstance();
+        const bool log_debug = config->LogDebug();
+        if (log_debug)
+        {
+            std::ostringstream debug;
+            debug << "[RAW REPORTED DATA]\n\n";
+            debug << "Interval: " << EventListeners::CalculateElapsedTimeMs(config->GetLastEvent(), std::chrono::high_resolution_clock::now()) << "ms\n";
+            debug << DebugPoints(contacts);
+            DEBUG(debug.str());
+        }
+
         // Reorder the 'contacts' vector based on the filtered and sorted 'ids' vector
         // This ensures that 'contacts' is sorted by 'contact_id' in ascending order
         // and only includes 'contact_id's that are less than or equal to CONTACT_ID_MAXIMUM
-        ids.erase(std::remove_if(ids.begin(), ids.end(), [](const int id) {
+        ids.erase(std::remove_if(ids.begin(), ids.end(), [](const int id)
+        {
             return id > CONTACT_ID_MAXIMUM || id <= 0;
         }), ids.end());
-        
-        for (const auto& id : ids) {
-            auto it = std::find_if(contacts.begin(), contacts.end(), [&](const TouchPoint& tp) {
+
+        for (const auto& id : ids)
+        {
+            auto it = std::find_if(contacts.begin(), contacts.end(), [&](const TouchPoint& tp)
+            {
                 return tp.contact_id == id;
             });
-            if (it != contacts.end()) 
+            if (it != contacts.end())
                 sorted_contacts.push_back(*it);
         }
-
+        
         data.contacts = sorted_contacts;
         data.contact_count = GetContactCount(sorted_contacts);
         data.can_perform_gesture = data.contact_count == EventListeners::NUM_TOUCH_CONTACTS_REQUIRED;
-
-        const auto config = GlobalConfig::GetInstance();
-
+        
         for (const TouchPoint contact : sorted_contacts)
         {
             for (const TouchPoint previous_contact : parsed_contacts_)
@@ -213,24 +227,53 @@ namespace Touchpad
                 data.contacts = parsed_contacts_;
 
                 // Fire touch up event if there are no valid contact points on the touchpad surface on this report
-                const bool previousHasContact = TouchPointsMadeContact(config->GetPreviousTouchContacts());
-                const bool hasContact = TouchPointsMadeContact(contacts);
+                const bool previous_has_contact = TouchPointsMadeContact(config->GetPreviousTouchContacts());
+                const bool has_contact = TouchPointsMadeContact(contacts);
                 const auto time = std::chrono::high_resolution_clock::now();
-                
+                const bool touch_up_event = !has_contact && previous_has_contact;
+
+                if (log_debug)
+                {
+                    std::stringstream debug;
+                    debug << "[TOUCH EVENT DATA]\n\n";
+                    debug << "TYPE: ";
+                    if (touch_up_event)
+                        debug << "TouchUpEvent";
+                    else
+                        debug << "TouchActivityEvent";
+                    debug << "\n";
+                    debug << "Interval: " << EventListeners::CalculateElapsedTimeMs(config->GetLastEvent(), time) << "ms\n";
+                    debug << DebugPoints(data.contacts);
+                    DEBUG(debug.str());
+                }
                 // Interpret the touch movement into events
-                if (!hasContact && previousHasContact)
+                if (touch_up_event)
                     touch_up_event_.RaiseEvent(TouchUpEventArgs(time, &data, config->GetPreviousTouchContacts()));
                 else
-                    touch_activity_event_.RaiseEvent(TouchActivityEventArgs(time, &data, config->GetPreviousTouchContacts()));
-                    
+                    touch_activity_event_.RaiseEvent(
+                        TouchActivityEventArgs(time, &data, config->GetPreviousTouchContacts()));
+
                 config->SetLastEvent(time);
                 parsed_contacts_.clear();
                 break;
             }
             parsed_contacts_.emplace_back(contact);
         }
-
     }
+
+    std::string TouchProcessor::DebugPoints(const std::vector<TouchPoint>& data)
+    {
+        std::ostringstream oss;
+        for (const auto& contact : data)
+        {
+            oss << "Contact ID: " << contact.contact_id
+                << ", X: " << contact.x
+                << ", Y: " << contact.y
+                << ", On Surface: " << (contact.on_surface ? "Yes" : "No") << "\n";
+        }
+        return oss.str();
+    }
+
 
     int TouchProcessor::GetContactCount(const std::vector<TouchPoint>& data)
     {

@@ -95,7 +95,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     StartPeriodicUpdateThreads();
     PerformAdditionalSteps();
-
+    
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0))
     {
@@ -139,6 +139,9 @@ BOOL InitInstance()
 
     // Show the settings icon
     Shell_NotifyIcon(NIM_ADD, &tray_icon_data);
+    
+    if (config->LogDebug())
+        DEBUG("Application initialized successfully.");
     return TRUE;
 }
 

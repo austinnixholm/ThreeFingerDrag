@@ -12,7 +12,7 @@ namespace Application
 {
     constexpr int VERSION_MAJOR = 1;
     constexpr int VERSION_MINOR = 2;
-    constexpr int VERSION_PATCH = 4;
+    constexpr int VERSION_PATCH = 5;
 
     constexpr char VERSION_FILE_NAME[] = "version.txt";
 
@@ -105,7 +105,12 @@ namespace Application
         mINI::INIStructure ini;
 
         if (!file.read(ini))
+        {
+            std::stringstream ss;
+            ss << "Couldn't read '" <<  file_path << "'";
+            ERROR(ss.str());
             return;
+        }
 
         const auto config_section = ini["Configuration"];
 
@@ -114,6 +119,9 @@ namespace Application
 
         if (config_section.has("cancellation_delay_ms"))
             config->SetCancellationDelayMs(std::stof(config_section.get("cancellation_delay_ms")));
+
+        if (config_section.has("debug"))
+            config->SetLogDebug(config_section.get("debug") == "true");
     }
 
     inline std::filesystem::path ExePath()

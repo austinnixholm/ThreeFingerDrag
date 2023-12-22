@@ -18,6 +18,7 @@ private:
     int cancellation_delay_ms_;
     bool gesture_started_;
     bool cancellation_started_;
+    bool log_debug_;
     std::chrono::time_point<std::chrono::steady_clock> cancellation_time_;
     std::chrono::time_point<std::chrono::steady_clock> last_valid_movement_;
     std::chrono::time_point<std::chrono::steady_clock> last_event_;
@@ -35,6 +36,7 @@ public:
     double GetGestureSpeed() const;
     bool IsGestureStarted() const;
     bool IsCancellationStarted() const;
+    bool LogDebug() const;
     std::chrono::time_point<std::chrono::steady_clock> GetCancellationTime() const;
     std::chrono::time_point<std::chrono::steady_clock> GetLastValidMovement() const;
     std::chrono::time_point<std::chrono::steady_clock> GetLastEvent() const;
@@ -44,6 +46,7 @@ public:
     void SetGestureSpeed(double speed);
     void SetGestureStarted(bool started);
     void SetCancellationStarted(bool started);
+    void SetLogDebug(bool log);
     void SetCancellationTime(std::chrono::time_point<std::chrono::steady_clock> time);
     void SetLastValidMovement(std::chrono::time_point<std::chrono::steady_clock> time);
     void SetLastEvent(std::chrono::time_point<std::chrono::steady_clock> time);

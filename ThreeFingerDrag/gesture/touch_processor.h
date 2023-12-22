@@ -44,6 +44,7 @@ namespace Touchpad
          * @return The retrieved touch data.
          */
         void InterpretRawInput(HRAWINPUT hRawInputHandle);
+        static std::string DebugPoints(const std::vector<TouchPoint>& data);
         static int GetContactCount(const std::vector<TouchPoint>& data);
 
         /**

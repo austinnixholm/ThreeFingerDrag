@@ -11,6 +11,7 @@ GlobalConfig::GlobalConfig()
     mouse_cursor_speed_ = DEFAULT_MOUSE_CURSOR_SPEED;
     gesture_started_ = false;
     cancellation_started_ = false;
+    log_debug_ = false;
 }
 
 GlobalConfig* GlobalConfig::GetInstance()
@@ -99,3 +100,15 @@ void GlobalConfig::SetPreviousTouchContacts(const std::vector<TouchPoint>& data)
 {
     previous_touch_contacts_ = data;
 }
+
+bool GlobalConfig::LogDebug() const
+{
+    return log_debug_;
+}
+
+void GlobalConfig::SetLogDebug(bool log)
+{
+    log_debug_ = log;
+}
+
+
