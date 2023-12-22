@@ -8,7 +8,6 @@ namespace
 {
     constexpr auto STARTUP_REGISTRY_KEY = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
     constexpr auto PROGRAM_NAME = L"ThreeFingerDrag";
-    constexpr auto UPDATE_SETTINGS_PERIOD_MS = std::chrono::milliseconds(2000);
     constexpr auto TOUCH_ACTIVITY_PERIOD_MS = std::chrono::milliseconds(1);
     constexpr auto MAX_LOAD_STRING_LENGTH = 100;
 
@@ -261,7 +260,7 @@ LRESULT CALLBACK SettingsWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lPar
 
     case WM_ERASEBKGND:
         {
-            auto hdc = (HDC)wParam;
+            const auto hdc = (HDC)wParam;
             RECT rect;
             GetClientRect(hWnd, &rect);
             FillRect(hdc, &rect, white_brush);
@@ -520,14 +519,14 @@ bool RegisterRawInputDevices()
  */
 bool InitializeWindowsNotifications()
 {
-    auto appName = L"ThreeFingerDrag";
+    const auto app_name = L"ThreeFingerDrag";
 
     WinToast::WinToastError error;
-    WinToast::instance()->setAppName(appName);
+    WinToast::instance()->setAppName(app_name);
 
     auto str = Application::GetVersionString();
     const std::wstring w_version(str.begin(), str.end());
-    const auto aumi = WinToast::configureAUMI(L"Austin Nixholm", appName, L"Tool", L"Current");
+    const auto aumi = WinToast::configureAUMI(L"Austin Nixholm", app_name, L"Tool", L"Current");
 
     WinToast::instance()->setAppUserModelId(aumi);
 
@@ -595,21 +594,21 @@ bool StartupRegistryKeyExists()
  */
 void RemoveStartupRegistryKey()
 {
-    HKEY hKey;
-    LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, STARTUP_REGISTRY_KEY, 0, KEY_WRITE, &hKey);
+    HKEY h_key;
+    const LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, STARTUP_REGISTRY_KEY, 0, KEY_WRITE, &h_key);
     if (result != ERROR_SUCCESS)
         return;
-    RegDeleteValue(hKey, PROGRAM_NAME);
-    RegCloseKey(hKey);
+    RegDeleteValue(h_key, PROGRAM_NAME);
+    RegCloseKey(h_key);
 }
 
 bool CheckSingleInstance()
 {
-    const HANDLE hMutex = CreateMutex(nullptr, TRUE, PROGRAM_NAME);
+    const HANDLE h_mutex = CreateMutex(nullptr, TRUE, PROGRAM_NAME);
     if (GetLastError() == ERROR_ALREADY_EXISTS)
     {
         Popups::DisplayErrorMessage("Another instance of Three Finger Drag is already running.");
-        CloseHandle(hMutex);
+        CloseHandle(h_mutex);
         return false;
     }
     return true;
