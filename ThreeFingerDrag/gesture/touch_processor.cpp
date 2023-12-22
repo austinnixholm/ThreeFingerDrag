@@ -5,14 +5,14 @@ namespace Touchpad
 {
     TouchProcessor::TouchProcessor()
     {
-        touchActivityEvent.AddListener(std::bind(
+        touch_activity_event_.AddListener(std::bind(
             &EventListeners::TouchActivityListener::OnTouchActivity,
-            &activityListener,
+            &activity_listener_,
             std::placeholders::_1));
 
-        touchUpEvent.AddListener(std::bind(
+        touch_up_event_.AddListener(std::bind(
             &EventListeners::TouchUpListener::OnTouchUp,
-            &touchUpListener,
+            &touch_up_listener_,
             std::placeholders::_1));
     }
 
@@ -51,7 +51,8 @@ namespace Touchpad
             return;
 
         // Get raw input data.
-        if (GetRawInputData(hRawInputHandle, RID_INPUT, raw_input, &size, sizeof(RAWINPUTHEADER)) == -1)
+        if (GetRawInputData(hRawInputHandle, RID_INPUT, raw_input, &size, sizeof(RAWINPUTHEADER)) == static_cast<UINT>(-
+            1))
         {
             HeapFree(hHeap, 0, raw_input);
             return;
@@ -103,9 +104,8 @@ namespace Touchpad
 
         // Loop through input value caps and retrieve touchpad data.
         ULONG value;
-        UINT contact_count = 0;
 
-        TouchPoint contact{INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
+        TouchPoint parsed_contact{INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
         for (USHORT i = 0; i < length; i++)
         {
             if (HidP_GetUsageValue(
@@ -126,29 +126,22 @@ namespace Touchpad
             const USAGE usage = value_caps[i].Range.UsageMin;
             switch (value_caps[i].LinkCollection)
             {
-            case 0:
-                if (usage_page == USAGE_PAGE_DIGITIZER_INFO && usage == USAGE_DIGITIZER_CONTACT_COUNT)
-                {
-                    contact_count = value;
-                    if (contact_count == EventListeners::NUM_TOUCH_CONTACTS_REQUIRED)
-                        data.can_perform_gesture = true;
-                }
-                break;
             default:
                 if (usage_page == USAGE_PAGE_DIGITIZER_INFO && usage == USAGE_DIGITIZER_CONTACT_ID)
-                    contact.contact_id = static_cast<int>(value);
+                    parsed_contact.contact_id = static_cast<int>(value);
                 else if (usage_page == USAGE_PAGE_DIGITIZER_VALUES && usage == USAGE_DIGITIZER_X_COORDINATE)
-                    contact.x = static_cast<int>(value);
+                    parsed_contact.x = static_cast<int>(value);
                 else if (usage_page == USAGE_PAGE_DIGITIZER_VALUES && usage == USAGE_DIGITIZER_Y_COORDINATE)
-                    contact.y = static_cast<int>(value);
+                    parsed_contact.y = static_cast<int>(value);
                 break;
             }
 
             // If all contact fields are populated, add contact to list and reset fields.
-            if (contact.contact_id != INIT_VALUE && contact.x != INIT_VALUE && contact.y != INIT_VALUE)
+            if (parsed_contact.contact_id != INIT_VALUE && parsed_contact.x != INIT_VALUE && parsed_contact.y !=
+                INIT_VALUE)
             {
-                const ULONG maxNumButtons = HidP_MaxUsageListLength(HidP_Input, HID_USAGE_PAGE_DIGITIZER,
-                                                                    pre_parsed_data);
+                const ULONG maxNumButtons =
+                    HidP_MaxUsageListLength(HidP_Input, HID_USAGE_PAGE_DIGITIZER, pre_parsed_data);
                 USAGE* buttonUsageArray = (USAGE*)malloc(sizeof(USAGE) * maxNumButtons);
                 ULONG _maxNumButtons = maxNumButtons;
 
@@ -167,7 +160,7 @@ namespace Touchpad
                         // Determine if this contact point is on the touchpad surface
                         if (buttonUsageArray[usageIdx] == HID_USAGE_DIGITIZER_TIP_SWITCH)
                         {
-                            contact.on_surface = true;
+                            parsed_contact.on_surface = true;
                             break;
                         }
                     }
@@ -175,9 +168,10 @@ namespace Touchpad
                     free(buttonUsageArray);
                 }
 
-                contacts.emplace_back(contact);
+                contacts.emplace_back(parsed_contact);
+                ids.push_back(parsed_contact.contact_id); 
 
-                contact = {INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
+                parsed_contact = {INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
             }
         }
         // Free allocated memory.
@@ -185,27 +179,69 @@ namespace Touchpad
         HeapFree(hHeap, 0, pre_parsed_data);
         HeapFree(hHeap, 0, value_caps);
 
-        // Populate TouchInputData struct and return.
-        data.contacts = contacts;
-        data.contact_count = contact_count;
+        std::sort(ids.begin(), ids.end());
+        std::vector<TouchPoint> sorted_contacts;
+        
+        // Reorder the 'contacts' vector based on the filtered and sorted 'ids' vector
+        // This ensures that 'contacts' is sorted by 'contact_id' in ascending order
+        // and only includes 'contact_id's that are less than or equal to CONTACT_ID_MAXIMUM
+        ids.erase(std::remove_if(ids.begin(), ids.end(), [](const int id) {
+            return id > CONTACT_ID_MAXIMUM || id <= 0;
+        }), ids.end());
+        
+        for (const auto& id : ids) {
+            auto it = std::find_if(contacts.begin(), contacts.end(), [&](const TouchPoint& tp) {
+                return tp.contact_id == id;
+            });
+            if (it != contacts.end()) 
+                sorted_contacts.push_back(*it);
+        }
+
+        data.contacts = sorted_contacts;
+        data.contact_count = GetContactCount(sorted_contacts);
+        data.can_perform_gesture = data.contact_count == EventListeners::NUM_TOUCH_CONTACTS_REQUIRED;
 
         const auto config = GlobalConfig::GetInstance();
-        const TouchInputData previous_data_ = config->GetPreviousTouchData();
 
-        // Fire touch up event if there are no valid contact points on the touchpad surface on this report
-        const bool previousHasContact = TouchPointsMadeContact(previous_data_.contacts);
-        const bool hasContact = TouchPointsMadeContact(contacts);
-        const auto time = std::chrono::high_resolution_clock::now();
-
-        // Interpret the touch movement into events
-        if (!hasContact && previousHasContact)
+        for (const TouchPoint contact : sorted_contacts)
         {
-            touchUpEvent.RaiseEvent(TouchUpEventArgs(time, &data, previous_data_));
-            return;
+            for (const TouchPoint previous_contact : parsed_contacts_)
+            {
+                if (previous_contact.contact_id != contact.contact_id)
+                    continue;
+
+                data.contacts = parsed_contacts_;
+
+                // Fire touch up event if there are no valid contact points on the touchpad surface on this report
+                const bool previousHasContact = TouchPointsMadeContact(config->GetPreviousTouchContacts());
+                const bool hasContact = TouchPointsMadeContact(contacts);
+                const auto time = std::chrono::high_resolution_clock::now();
+                
+                // Interpret the touch movement into events
+                if (!hasContact && previousHasContact)
+                    touch_up_event_.RaiseEvent(TouchUpEventArgs(time, &data, config->GetPreviousTouchContacts()));
+                else
+                    touch_activity_event_.RaiseEvent(TouchActivityEventArgs(time, &data, config->GetPreviousTouchContacts()));
+                    
+                config->SetLastEvent(time);
+                parsed_contacts_.clear();
+                break;
+            }
+            parsed_contacts_.emplace_back(contact);
         }
-        touchActivityEvent.RaiseEvent(TouchActivityEventArgs(time, &data, previous_data_));
-        config->SetLastGesture(time);
-        config->SetPreviousTouchData(std::move(data));
+
+    }
+
+    int TouchProcessor::GetContactCount(const std::vector<TouchPoint>& data)
+    {
+        int count = 0;
+        for (const TouchPoint point : data)
+        {
+            if (point.contact_id > CONTACT_ID_MAXIMUM || point.x == 0 || point.y == 0)
+                continue;
+            count++;
+        }
+        return count;
     }
 
     /**

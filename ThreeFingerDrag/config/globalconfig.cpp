@@ -11,7 +11,6 @@ GlobalConfig::GlobalConfig()
     mouse_cursor_speed_ = DEFAULT_MOUSE_CURSOR_SPEED;
     gesture_started_ = false;
     cancellation_started_ = false;
-    is_dragging_ = false;
 }
 
 GlobalConfig* GlobalConfig::GetInstance()
@@ -39,16 +38,6 @@ double GlobalConfig::GetGestureSpeed() const
 void GlobalConfig::SetGestureSpeed(double speed)
 {
     gesture_speed_ = speed;
-}
-
-bool GlobalConfig::IsDragging() const
-{
-    return is_dragging_;
-}
-
-void GlobalConfig::SetDragging(bool dragging)
-{
-    is_dragging_ = dragging;
 }
 
 bool GlobalConfig::IsGestureStarted() const
@@ -91,22 +80,22 @@ void GlobalConfig::SetLastValidMovement(const std::chrono::time_point<std::chron
     last_valid_movement_ = time;
 }
 
-std::chrono::time_point<std::chrono::steady_clock> GlobalConfig::GetLastGesture() const
+std::chrono::time_point<std::chrono::steady_clock> GlobalConfig::GetLastEvent() const
 {
-    return last_gesture_;
+    return last_event_;
 }
 
-void GlobalConfig::SetLastGesture(const std::chrono::time_point<std::chrono::steady_clock> time)
+void GlobalConfig::SetLastEvent(const std::chrono::time_point<std::chrono::steady_clock> time)
 {
-    last_gesture_ = time;
+    last_event_ = time;
 }
 
-TouchInputData GlobalConfig::GetPreviousTouchData() const
+std::vector<TouchPoint> GlobalConfig::GetPreviousTouchContacts() const
 {
-    return previous_touch_data_;
+    return previous_touch_contacts_;
 }
 
-void GlobalConfig::SetPreviousTouchData(TouchInputData&& data)
+void GlobalConfig::SetPreviousTouchContacts(const std::vector<TouchPoint>& data)
 {
-    previous_touch_data_ = std::move(data);
+    previous_touch_contacts_ = data;
 }
