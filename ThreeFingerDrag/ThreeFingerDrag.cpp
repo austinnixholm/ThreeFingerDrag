@@ -489,6 +489,7 @@ void StartPeriodicUpdateThreads()
             {
                 continue;
             }
+ 
             Cursor::LeftMouseUp();
             config->SetDragging(false);
             config->SetCancellationStarted(false);
