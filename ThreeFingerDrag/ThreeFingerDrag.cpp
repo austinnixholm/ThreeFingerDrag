@@ -491,7 +491,6 @@ void StartPeriodicUpdateThreads()
             }
  
             Cursor::LeftMouseUp();
-            config->SetDragging(false);
             config->SetCancellationStarted(false);
         }
     });

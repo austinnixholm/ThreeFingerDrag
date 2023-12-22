@@ -18,7 +18,6 @@ namespace EventListeners
     static void CancelGesture()
     {
         Cursor::LeftMouseUp();
-        config->SetDragging(false);
         config->SetCancellationStarted(false);
     }
 
@@ -49,7 +48,8 @@ namespace EventListeners
             }
 
             // Check if it's the initial gesture
-            const bool is_initial_gesture = !config->IsDragging() && args.data->can_perform_gesture;
+            const bool is_dragging = IsDragging();
+            const bool is_initial_gesture = !is_dragging && args.data->can_perform_gesture;
             const auto current_time = args.time;
 
             // If it's the initial gesture, set the gesture start time
@@ -76,7 +76,7 @@ namespace EventListeners
                 return;
 
             // If invalid amount of fingers, and gesture is not currently performing
-            if (!args.data->can_perform_gesture && !IsDragging())
+            if (!args.data->can_perform_gesture && !is_dragging)
                 return;
 
             // Loop through each touch contact
@@ -145,11 +145,8 @@ namespace EventListeners
             Cursor::MoveCursor(delta_x, delta_y);
 
             // Start dragging if left mouse is not already down
-            if (!IsDragging())
-            {
+            if (!is_dragging)
                 Cursor::LeftMouseDown();
-                config->SetDragging(true);
-            }
 
             const auto change_x = std::abs(delta_x);
             const auto change_y = std::abs(delta_y);

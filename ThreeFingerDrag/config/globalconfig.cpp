@@ -11,7 +11,6 @@ GlobalConfig::GlobalConfig()
     mouse_cursor_speed_ = DEFAULT_MOUSE_CURSOR_SPEED;
     gesture_started_ = false;
     cancellation_started_ = false;
-    is_dragging_ = false;
 }
 
 GlobalConfig* GlobalConfig::GetInstance()
@@ -39,16 +38,6 @@ double GlobalConfig::GetGestureSpeed() const
 void GlobalConfig::SetGestureSpeed(double speed)
 {
     gesture_speed_ = speed;
-}
-
-bool GlobalConfig::IsDragging() const
-{
-    return is_dragging_;
-}
-
-void GlobalConfig::SetDragging(bool dragging)
-{
-    is_dragging_ = dragging;
 }
 
 bool GlobalConfig::IsGestureStarted() const

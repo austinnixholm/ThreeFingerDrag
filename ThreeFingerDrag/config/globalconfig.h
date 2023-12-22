@@ -16,7 +16,6 @@ private:
     double precision_touch_cursor_speed_;
     double mouse_cursor_speed_;
     int cancellation_delay_ms_;
-    bool is_dragging_;
     bool gesture_started_;
     bool cancellation_started_;
     std::chrono::time_point<std::chrono::steady_clock> cancellation_time_;
@@ -34,7 +33,6 @@ public:
 
     int GetCancellationDelayMs() const;
     double GetGestureSpeed() const;
-    bool IsDragging() const;
     bool IsGestureStarted() const;
     bool IsCancellationStarted() const;
     std::chrono::time_point<std::chrono::steady_clock> GetCancellationTime() const;
@@ -44,7 +42,6 @@ public:
 
     void SetCancellationDelayMs(int delay);
     void SetGestureSpeed(double speed);
-    void SetDragging(bool dragging);
     void SetGestureStarted(bool started);
     void SetCancellationStarted(bool started);
     void SetCancellationTime(std::chrono::time_point<std::chrono::steady_clock> time);
