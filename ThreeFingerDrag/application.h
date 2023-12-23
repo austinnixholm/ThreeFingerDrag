@@ -24,6 +24,8 @@ namespace Application
 
     inline GlobalConfig* config = GlobalConfig::GetInstance();
 
+    inline std::string config_folder_path;
+
     /**
      * @brief Constructs and returns the path to application configuration files. If required, the directory will be created.
      * @return The local app data folder path
@@ -37,6 +39,8 @@ namespace Application
         auto directory_path = std::string(env_path);
         directory_path += "\\";
         directory_path += "ThreeFingerDrag";
+
+        config_folder_path = directory_path;
 
         // Create the application data directory if necessary
         if (!std::filesystem::exists(directory_path))
@@ -74,6 +78,7 @@ namespace Application
     {
         std::stringstream ss;
         std::string file_path = GetConfigurationFolderPath();
+        
         file_path += "\\";
         file_path += "\\config.ini";
 
@@ -84,6 +89,7 @@ namespace Application
 
         ini["Configuration"]["gesture_speed"] = ss.str();
         ini["Configuration"]["cancellation_delay_ms"] = std::to_string(config->GetCancellationDelayMs());
+        ini["Configuration"]["debug"] = config->LogDebug() ? "true" : "false";
 
         if (!file.generate(ini))
             ERROR("Error writing to config file.");
@@ -92,6 +98,7 @@ namespace Application
     inline void ReadConfiguration()
     {
         std::string file_path = GetConfigurationFolderPath();
+        
         file_path += "\\";
         file_path += "\\config.ini";
 
@@ -101,13 +108,14 @@ namespace Application
             return;
         }
 
+
         mINI::INIFile file(file_path);
         mINI::INIStructure ini;
 
         if (!file.read(ini))
         {
             std::stringstream ss;
-            ss << "Couldn't read '" <<  file_path << "'";
+            ss << "Couldn't read '" << file_path << "'";
             ERROR(ss.str());
             return;
         }

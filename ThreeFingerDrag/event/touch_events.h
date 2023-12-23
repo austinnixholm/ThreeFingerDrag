@@ -7,13 +7,13 @@ class TouchActivityEventArgs : public EventArgs
 {
 public:
     TouchInputData* data;
-    std::vector<TouchPoint> previous_data;
+    std::vector<TouchContact> previous_data;
     std::chrono::time_point<std::chrono::steady_clock> time;
 
     TouchActivityEventArgs(
         std::chrono::time_point<std::chrono::steady_clock> time,
         TouchInputData* data,
-        const std::vector<TouchPoint>& previous_data)
+        const std::vector<TouchContact>& previous_data)
         : data(data), previous_data(previous_data), time(time)
     {
     }
@@ -25,7 +25,7 @@ public:
     TouchUpEventArgs(
         std::chrono::time_point<std::chrono::steady_clock> time,
         TouchInputData* data,
-        const std::vector<TouchPoint>& previous_data)
+        const std::vector<TouchContact>& previous_data)
         : TouchActivityEventArgs{time, data, previous_data}
     {
     }

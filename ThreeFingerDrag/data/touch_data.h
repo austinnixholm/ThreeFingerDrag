@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 
-struct TouchPoint
+struct TouchContact
 {
     int contact_id;
     int x;
@@ -11,7 +11,7 @@ struct TouchPoint
 
 struct TouchInputData
 {
-    std::vector<TouchPoint> contacts;
+    std::vector<TouchContact> contacts;
     int contact_count = 0;
     bool can_perform_gesture = false;
 };

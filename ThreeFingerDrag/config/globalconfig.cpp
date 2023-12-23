@@ -91,12 +91,12 @@ void GlobalConfig::SetLastEvent(const std::chrono::time_point<std::chrono::stead
     last_event_ = time;
 }
 
-std::vector<TouchPoint> GlobalConfig::GetPreviousTouchContacts() const
+std::vector<TouchContact> GlobalConfig::GetPreviousTouchContacts() const
 {
     return previous_touch_contacts_;
 }
 
-void GlobalConfig::SetPreviousTouchContacts(const std::vector<TouchPoint>& data)
+void GlobalConfig::SetPreviousTouchContacts(const std::vector<TouchContact>& data)
 {
     previous_touch_contacts_ = data;
 }

@@ -23,6 +23,7 @@ namespace
     constexpr auto ID_GESTURE_SPEED_TRACKBAR = 10003;
     constexpr auto ID_TEXT_BOX = 10004;
     constexpr auto ID_CANCELLATION_DELAY_SPINNER = 10005;
+    constexpr auto ID_OPEN_CONFIG_FOLDER = 10005;
 }
 
 // Global Variables
@@ -115,20 +116,23 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 BOOL InitInstance()
 {
+    const bool log = config->LogDebug();
     // Initialize WinToast notifications
     if (!InitializeWindowsNotifications())
     {
         ERROR("Failed to initialize WinToast.");
         return FALSE;
     }
-
+    if (log)
+        DEBUG("Initialized notifications.");
     // Initialize tray icon, settings window
     if (!InitializeGUI())
     {
         Popups::DisplayErrorMessage("GUI initialization failed!");
         return FALSE;
     }
-
+    if (log)
+        DEBUG("Initialized GUI.");
     // Start listening to raw touchpad input.
     if (!RegisterRawInputDevices())
     {
@@ -136,12 +140,14 @@ BOOL InitInstance()
             "ThreeFingerDrag couldn't find a precision touchpad device on your system. The program will now exit.");
         return FALSE;
     }
-
+    if (log)
+        DEBUG("Registered raw input device.");
+    
     // Show the settings icon
     Shell_NotifyIcon(NIM_ADD, &tray_icon_data);
     
     if (config->LogDebug())
-        DEBUG("Application initialized successfully.");
+        DEBUG("Application initialized successfully!");
     return TRUE;
 }
 
@@ -181,6 +187,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case ID_SETTINGS_MENUITEM:
                 ShowSettingsWindow();
                 break;
+            case ID_OPEN_CONFIG_FOLDER:
+                ShellExecuteA(NULL, "open", Application::config_folder_path.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
             }
@@ -197,6 +206,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             Shell_NotifyIcon(NIM_DELETE, &tray_icon_data);
             InitializeGUI();
             Shell_NotifyIcon(NIM_ADD, &tray_icon_data);
+            if (config->LogDebug())
+                DEBUG("Refreshing tray icon");
             break;
         }
         return DefWindowProc(hWnd, message, wParam, lParam);
@@ -426,9 +437,10 @@ void CreateTrayMenu(const HWND hWnd)
     // Create the popup menu.
     const HMENU hMenu = CreatePopupMenu();
 
-    // Add the "Settings" menu item
+    // Add the menu items
     AppendMenu(hMenu, MF_STRING, ID_SETTINGS_MENUITEM, TEXT("Settings"));
-
+    AppendMenu(hMenu, MF_STRING, ID_OPEN_CONFIG_FOLDER, TEXT("Open Config"));
+    
     // Add a separator and the "Exit" menu item.
     AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
     AppendMenu(hMenu, MF_STRING, ID_QUIT_MENUITEM, TEXT("Exit"));
@@ -494,6 +506,8 @@ void StartPeriodicUpdateThreads()
  
             Cursor::LeftMouseUp();
             config->SetCancellationStarted(false);
+            if (config->LogDebug())
+                DEBUG("Cancelled gesture (cancellation timeout).");
         }
     });
 }
@@ -653,6 +667,10 @@ void PerformAdditionalSteps()
         RemoveStartupRegistryKey();
         TaskScheduler::CreateLoginTask("ThreeFingerDrag", Application::ExePath().u8string());
     }
+
+    // Notify the user if debug mode is enabled
+    if (config->LogDebug())
+        Popups::ShowToastNotification(L"To find logs & configuration, click 'Open Config' in the tray menu.", L"(ThreeFingerDrag) Debug mode enabled!");
 }
 
 ATOM RegisterWindowClass(HINSTANCE hInstance, WCHAR* className, WNDPROC wndProc)
