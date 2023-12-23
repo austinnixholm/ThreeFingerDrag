@@ -11,6 +11,7 @@ GlobalConfig::GlobalConfig()
     mouse_cursor_speed_ = DEFAULT_MOUSE_CURSOR_SPEED;
     gesture_started_ = false;
     cancellation_started_ = false;
+    log_debug_ = false;
 }
 
 GlobalConfig* GlobalConfig::GetInstance()
@@ -90,12 +91,24 @@ void GlobalConfig::SetLastEvent(const std::chrono::time_point<std::chrono::stead
     last_event_ = time;
 }
 
-std::vector<TouchPoint> GlobalConfig::GetPreviousTouchContacts() const
+std::vector<TouchContact> GlobalConfig::GetPreviousTouchContacts() const
 {
     return previous_touch_contacts_;
 }
 
-void GlobalConfig::SetPreviousTouchContacts(const std::vector<TouchPoint>& data)
+void GlobalConfig::SetPreviousTouchContacts(const std::vector<TouchContact>& data)
 {
     previous_touch_contacts_ = data;
 }
+
+bool GlobalConfig::LogDebug() const
+{
+    return log_debug_;
+}
+
+void GlobalConfig::SetLogDebug(bool log)
+{
+    log_debug_ = log;
+}
+
+

@@ -2,6 +2,7 @@
 #include "../config/globalconfig.h"
 #include "../event/touch_events.h"
 #include "../mouse/cursor.h"
+#include "../logging/logger.h"
 #include <array>
 #include <numeric>
 
@@ -19,6 +20,8 @@ namespace EventListeners
     {
         Cursor::LeftMouseUp();
         config->SetCancellationStarted(false);
+        if (config->LogDebug())
+            DEBUG("Cancelled gesture.");
     }
 
     static float CalculateElapsedTimeMs(const std::chrono::time_point<std::chrono::steady_clock>& start_time,
@@ -57,6 +60,8 @@ namespace EventListeners
             {
                 config->SetGestureStarted(true);
                 gesture_start_ = current_time;
+                if (config->LogDebug())
+                    DEBUG("Started gesture.");
             }
 
             // If there's no previous data, return
@@ -197,6 +202,9 @@ namespace EventListeners
 
             config->SetCancellationStarted(true);
             config->SetCancellationTime(current_time);
+
+            if (config->LogDebug())
+                DEBUG("Started gesture cancellation.");
         }
     };
 }

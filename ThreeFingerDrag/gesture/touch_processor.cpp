@@ -1,10 +1,13 @@
 #include "touch_processor.h"
 #include <future>
+#include <sstream>
 
 namespace Touchpad
 {
     TouchProcessor::TouchProcessor()
     {
+        config = GlobalConfig::GetInstance();
+
         touch_activity_event_.AddListener(std::bind(
             &EventListeners::TouchActivityListener::OnTouchActivity,
             &activity_listener_,
@@ -28,6 +31,8 @@ namespace Touchpad
      */
     void TouchProcessor::InterpretRawInput(const HRAWINPUT hRawInputHandle)
     {
+        const bool log_debug = config->LogDebug();
+
         // Initialize touchpad input data struct with default values.
         TouchInputData data{};
 
@@ -39,10 +44,13 @@ namespace Touchpad
 
         // Get size of raw input data.
         GetRawInputData(hRawInputHandle, RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
-
-        // If size is 0, return default touchpad input data struct.
+        
         if (size == 0)
+        {
+            if (log_debug)
+                DEBUG("No data present.");
             return;
+        }
 
         // Allocate memory for raw input data.
         auto* raw_input = static_cast<RAWINPUT*>(HeapAlloc(hHeap, 0, size));
@@ -55,6 +63,7 @@ namespace Touchpad
             1))
         {
             HeapFree(hHeap, 0, raw_input);
+            ERROR("Could not retrieve raw input data from the HID device.");
             return;
         }
 
@@ -65,6 +74,7 @@ namespace Touchpad
         if (buffer_size == 0)
         {
             HeapFree(hHeap, 0, raw_input);
+            ERROR("Could not retrieve pre-parsed data buffer from the HID device.");
             return;
         }
 
@@ -80,6 +90,7 @@ namespace Touchpad
         {
             HeapFree(hHeap, 0, raw_input);
             HeapFree(hHeap, 0, pre_parsed_data);
+            ERROR("Could not retrieve capabilities from the HID device.");
             return;
         }
 
@@ -95,17 +106,20 @@ namespace Touchpad
             HeapFree(hHeap, 0, raw_input);
             HeapFree(hHeap, 0, pre_parsed_data);
             HeapFree(hHeap, 0, value_caps);
+            ERROR("Could not retrieve input value caps from the HID device.");
             return;
         }
 
+        if (log_debug)
+            DEBUG("Data Length = " + std::to_string(length));
+
         // Initialize vector to hold touchpad contact data.
-        std::vector<TouchPoint> contacts;
+        std::vector<TouchContact> contacts;
         std::vector<int> ids;
 
         // Loop through input value caps and retrieve touchpad data.
         ULONG value;
-
-        TouchPoint parsed_contact{INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
+        TouchContact parsed_contact{INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
         for (USHORT i = 0; i < length; i++)
         {
             if (HidP_GetUsageValue(
@@ -169,7 +183,7 @@ namespace Touchpad
                 }
 
                 contacts.emplace_back(parsed_contact);
-                ids.push_back(parsed_contact.contact_id); 
+                ids.push_back(parsed_contact.contact_id);
 
                 parsed_contact = {INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
             }
@@ -180,20 +194,34 @@ namespace Touchpad
         HeapFree(hHeap, 0, value_caps);
 
         std::sort(ids.begin(), ids.end());
-        std::vector<TouchPoint> sorted_contacts;
-        
+        std::vector<TouchContact> sorted_contacts;
+
+        if (log_debug)
+        {
+            const auto interval = std::to_string(EventListeners::CalculateElapsedTimeMs(
+                config->GetLastEvent(), std::chrono::high_resolution_clock::now()));
+            std::ostringstream debug;
+            debug << "[RAW REPORTED DATA]\n\n";
+            debug << "Interval: " << interval << "ms\n";
+            debug << DebugPoints(contacts);
+            DEBUG(debug.str());
+        }
+
         // Reorder the 'contacts' vector based on the filtered and sorted 'ids' vector
         // This ensures that 'contacts' is sorted by 'contact_id' in ascending order
         // and only includes 'contact_id's that are less than or equal to CONTACT_ID_MAXIMUM
-        ids.erase(std::remove_if(ids.begin(), ids.end(), [](const int id) {
+        ids.erase(std::remove_if(ids.begin(), ids.end(), [](const int id)
+        {
             return id > CONTACT_ID_MAXIMUM || id <= 0;
         }), ids.end());
-        
-        for (const auto& id : ids) {
-            auto it = std::find_if(contacts.begin(), contacts.end(), [&](const TouchPoint& tp) {
+
+        for (const auto& id : ids)
+        {
+            auto it = std::find_if(contacts.begin(), contacts.end(), [&](const TouchContact& tp)
+            {
                 return tp.contact_id == id;
             });
-            if (it != contacts.end()) 
+            if (it != contacts.end())
                 sorted_contacts.push_back(*it);
         }
 
@@ -201,11 +229,9 @@ namespace Touchpad
         data.contact_count = GetContactCount(sorted_contacts);
         data.can_perform_gesture = data.contact_count == EventListeners::NUM_TOUCH_CONTACTS_REQUIRED;
 
-        const auto config = GlobalConfig::GetInstance();
-
-        for (const TouchPoint contact : sorted_contacts)
+        for (const TouchContact contact : sorted_contacts)
         {
-            for (const TouchPoint previous_contact : parsed_contacts_)
+            for (const TouchContact previous_contact : parsed_contacts_)
             {
                 if (previous_contact.contact_id != contact.contact_id)
                     continue;
@@ -213,29 +239,61 @@ namespace Touchpad
                 data.contacts = parsed_contacts_;
 
                 // Fire touch up event if there are no valid contact points on the touchpad surface on this report
-                const bool previousHasContact = TouchPointsMadeContact(config->GetPreviousTouchContacts());
-                const bool hasContact = TouchPointsMadeContact(contacts);
+                const bool previous_has_contact = TouchPointsMadeContact(config->GetPreviousTouchContacts());
+                const bool has_contact = TouchPointsMadeContact(contacts);
                 const auto time = std::chrono::high_resolution_clock::now();
-                
+                const bool touch_up_event = !has_contact && previous_has_contact;
+
+                if (log_debug)
+                {
+                    const auto interval = std::to_string(EventListeners::CalculateElapsedTimeMs(config->GetLastEvent(), time));
+                    std::stringstream debug;
+                    debug << "[RAISED EVENT]\n\n";
+                    debug << "TYPE: ";
+                    if (touch_up_event)
+                        debug << "TouchUpEvent";
+                    else
+                        debug << "TouchActivityEvent";
+                    debug << "\n";
+                    debug << "Interval: " << interval <<
+                        "ms\n";
+                    debug << DebugPoints(data.contacts);
+                    DEBUG(debug.str());
+                }
                 // Interpret the touch movement into events
-                if (!hasContact && previousHasContact)
+                if (touch_up_event)
                     touch_up_event_.RaiseEvent(TouchUpEventArgs(time, &data, config->GetPreviousTouchContacts()));
                 else
-                    touch_activity_event_.RaiseEvent(TouchActivityEventArgs(time, &data, config->GetPreviousTouchContacts()));
-                    
+                    touch_activity_event_.RaiseEvent(
+                        TouchActivityEventArgs(time, &data, config->GetPreviousTouchContacts()));
+
                 config->SetLastEvent(time);
                 parsed_contacts_.clear();
                 break;
             }
             parsed_contacts_.emplace_back(contact);
         }
-
     }
 
-    int TouchProcessor::GetContactCount(const std::vector<TouchPoint>& data)
+    std::string TouchProcessor::DebugPoints(const std::vector<TouchContact>& data)
+    {
+        std::ostringstream oss;
+        oss << "Contacts: (size = " << data.size() << ")\n";
+        for (const auto& contact : data)
+        {
+            oss << "[ID: " << contact.contact_id
+                << ", X: " << contact.x
+                << ", Y: " << contact.y
+                << ", On Surface: " << (contact.on_surface ? "Yes" : "No") << "]\n";
+        }
+        return oss.str();
+    }
+
+
+    int TouchProcessor::GetContactCount(const std::vector<TouchContact>& data)
     {
         int count = 0;
-        for (const TouchPoint point : data)
+        for (const TouchContact point : data)
         {
             if (point.contact_id > CONTACT_ID_MAXIMUM || point.x == 0 || point.y == 0)
                 continue;
@@ -247,9 +305,9 @@ namespace Touchpad
     /**
      * \returns true if any of the given touch points are contacting the surface of the touchpad.
      */
-    bool TouchProcessor::TouchPointsMadeContact(const std::vector<TouchPoint>& points)
+    bool TouchProcessor::TouchPointsMadeContact(const std::vector<TouchContact>& points)
     {
-        return std::any_of(points.begin(), points.end(), [](TouchPoint p)
+        return std::any_of(points.begin(), points.end(), [](TouchContact p)
         {
             return p.contact_id < CONTACT_ID_MAXIMUM && p.on_surface;
         });

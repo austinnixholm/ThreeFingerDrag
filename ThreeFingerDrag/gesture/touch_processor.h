@@ -44,18 +44,21 @@ namespace Touchpad
          * @return The retrieved touch data.
          */
         void InterpretRawInput(HRAWINPUT hRawInputHandle);
-        static int GetContactCount(const std::vector<TouchPoint>& data);
+        static std::string DebugPoints(const std::vector<TouchContact>& data);
+        static int GetContactCount(const std::vector<TouchContact>& data);
 
         /**
          * \returns true if any of the given touch points are contacting the surface of the touchpad.
          */
-        static bool TouchPointsMadeContact(const std::vector<TouchPoint>& points);
+        static bool TouchPointsMadeContact(const std::vector<TouchContact>& points);
 
         EventListeners::TouchActivityListener activity_listener_;
         EventListeners::TouchUpListener touch_up_listener_;
 
         Event<TouchActivityEventArgs> touch_activity_event_;
         Event<TouchUpEventArgs> touch_up_event_;
-        std::vector<TouchPoint> parsed_contacts_;
+        std::vector<TouchContact> parsed_contacts_;
+
+        GlobalConfig* config;
     };
 }
