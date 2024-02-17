@@ -182,10 +182,7 @@ namespace EventListeners
         {
             config->SetPreviousTouchContacts(args.data->contacts);
 
-            const auto previous_movement_from_gesture = config->GetPreviousActivityEvent().time == config->
-                GetLastValidMovement();
-
-            if (config->IsCancellationStarted() || !previous_movement_from_gesture)
+            if (config->IsCancellationStarted() || !config->IsGestureStarted())
                 return;
 
             // Calculate the time elapsed since the last valid gesture movement

@@ -115,7 +115,6 @@ namespace Touchpad
 
         // Initialize vector to hold touchpad contact data.
         std::vector<TouchContact> received_contacts;
-        std::vector<int> ids;
 
         // Loop through input value caps and retrieve touchpad data.
         ULONG value;
@@ -135,11 +134,6 @@ namespace Touchpad
             ) != HIDP_STATUS_SUCCESS)
             {
                 continue;
-            }
-
-            if (!current_cap.IsAbsolute)
-            {
-                printf("test");
             }
 
             const USAGE usage_page = current_cap.UsagePage;
@@ -221,7 +215,6 @@ namespace Touchpad
                 }
 
                 received_contacts.emplace_back(parsed_contact);
-                ids.push_back(parsed_contact.contact_id);
 
                 parsed_contact = {INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
             }
@@ -230,9 +223,6 @@ namespace Touchpad
         HeapFree(hHeap, 0, raw_input);
         HeapFree(hHeap, 0, pre_parsed_data);
         HeapFree(hHeap, 0, value_caps);
-
-        std::sort(ids.begin(), ids.end());
-        std::vector<TouchContact> sorted_contacts;
 
         if (log_debug)
         {
@@ -294,7 +284,7 @@ namespace Touchpad
         TouchInputData touchInputData;
         touchInputData.contacts = parsed_contacts_;
         touchInputData.contact_count = parsed_contacts_.size();
-        touchInputData.can_perform_gesture = touchInputData.contact_count >=
+        touchInputData.can_perform_gesture = touchInputData.contact_count ==
             EventListeners::NUM_TOUCH_CONTACTS_REQUIRED;
 
         // Determine if a touch up event should be raised
@@ -376,7 +366,7 @@ namespace Touchpad
     {
         return std::any_of(points.begin(), points.end(), [](TouchContact p)
         {
-            return p.contact_id < CONTACT_ID_MAXIMUM && p.on_surface;
+            return p.on_surface;
         });
     }
 }
