@@ -20,6 +20,7 @@ namespace EventListeners
     {
         Cursor::LeftMouseUp();
         config->SetCancellationStarted(false);
+        config->SetGestureStarted(false);
         if (config->LogDebug())
             DEBUG("Cancelled gesture.");
     }
@@ -31,27 +32,16 @@ namespace EventListeners
         return elapsed.count() * 1000.0f;
     }
 
-    static bool IsDragging()
-    {
-        return GetAsyncKeyState(VK_LBUTTON) & 0x8000;
-    }
-
     class TouchActivityListener
     {
     public:
         void OnTouchActivity(const TouchActivityEventArgs& args)
         {
             config->SetPreviousTouchContacts(args.data->contacts);
-
-            // Cancel immediately if a previous cancellation has begun, and this is a non-gesture movement
-            if (config->IsCancellationStarted() && !args.data->can_perform_gesture)
-            {
-                CancelGesture();
-                return;
-            }
+            config->SetPreviousActivityEvent(args);
 
             // Check if it's the initial gesture
-            const bool is_dragging = IsDragging();
+            const bool is_dragging = Cursor::IsLeftMouseDown();
             const bool is_initial_gesture = !is_dragging && args.data->can_perform_gesture;
             const auto current_time = args.time;
 
@@ -112,6 +102,13 @@ namespace EventListeners
 
                 if (ms_since_movement > INACTIVITY_THRESHOLD_MS)
                     continue;
+
+                // Cancel immediately if a previous cancellation has begun, and this is a non-gesture movement
+                if (config->IsCancellationStarted() && !args.data->can_perform_gesture && config->IsGestureStarted())
+                {
+                    CancelGesture();
+                    return;
+                }
 
                 // Calculate the movement delta for the current finger
                 const double x_diff = contact.x - previous_contact.x;
@@ -184,9 +181,11 @@ namespace EventListeners
         void OnTouchUp(const TouchUpEventArgs& args)
         {
             config->SetPreviousTouchContacts(args.data->contacts);
-            config->SetGestureStarted(false);
 
-            if (config->IsCancellationStarted())
+            const auto previous_movement_from_gesture = config->GetPreviousActivityEvent().time == config->
+                GetLastValidMovement();
+
+            if (config->IsCancellationStarted() || !previous_movement_from_gesture)
                 return;
 
             // Calculate the time elapsed since the last valid gesture movement
@@ -202,6 +201,7 @@ namespace EventListeners
 
             config->SetCancellationStarted(true);
             config->SetCancellationTime(current_time);
+            config->SetLastValidMovement(current_time);
 
             if (config->LogDebug())
                 DEBUG("Started gesture cancellation.");

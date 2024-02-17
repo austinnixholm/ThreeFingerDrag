@@ -3,6 +3,7 @@
 #define GLOBALCONFIG_H
 #include <chrono>
 #include "../data/touch_data.h"
+#include "../event/touch_events.h"
 
 constexpr auto DEFAULT_ACCELERATION_FACTOR = 15.0;
 constexpr auto DEFAULT_PRECISION_CURSOR_SPEED = 0.5;
@@ -23,6 +24,7 @@ private:
     std::chrono::time_point<std::chrono::steady_clock> last_valid_movement_;
     std::chrono::time_point<std::chrono::steady_clock> last_event_;
     std::vector<TouchContact> previous_touch_contacts_;
+    TouchActivityEventArgs previous_activity_event_args_;
     static GlobalConfig* instance_;
 
     // Private constructor
@@ -41,6 +43,7 @@ public:
     std::chrono::time_point<std::chrono::steady_clock> GetLastValidMovement() const;
     std::chrono::time_point<std::chrono::steady_clock> GetLastEvent() const;
     std::vector<TouchContact> GetPreviousTouchContacts() const;
+    TouchActivityEventArgs GetPreviousActivityEvent() const;
 
     void SetCancellationDelayMs(int delay);
     void SetGestureSpeed(double speed);
@@ -51,6 +54,7 @@ public:
     void SetLastValidMovement(std::chrono::time_point<std::chrono::steady_clock> time);
     void SetLastEvent(std::chrono::time_point<std::chrono::steady_clock> time);
     void SetPreviousTouchContacts(const std::vector<TouchContact>& data);
+    void SetPreviousActivityEvent(const TouchActivityEventArgs& event);
 };
 
 #endif // GLOBALCONFIG_H

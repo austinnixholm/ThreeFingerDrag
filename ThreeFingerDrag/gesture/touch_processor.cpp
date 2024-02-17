@@ -44,7 +44,7 @@ namespace Touchpad
 
         // Get size of raw input data.
         GetRawInputData(hRawInputHandle, RID_INPUT, nullptr, &size, sizeof(RAWINPUTHEADER));
-        
+
         if (size == 0)
         {
             if (log_debug)
@@ -114,7 +114,7 @@ namespace Touchpad
             DEBUG("Data Length = " + std::to_string(length));
 
         // Initialize vector to hold touchpad contact data.
-        std::vector<TouchContact> contacts;
+        std::vector<TouchContact> received_contacts;
         std::vector<int> ids;
 
         // Loop through input value caps and retrieve touchpad data.
@@ -122,11 +122,12 @@ namespace Touchpad
         TouchContact parsed_contact{INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
         for (USHORT i = 0; i < length; i++)
         {
+            auto current_cap = value_caps[i];
             if (HidP_GetUsageValue(
                 HidP_Input,
-                value_caps[i].UsagePage,
-                value_caps[i].LinkCollection,
-                value_caps[i].NotRange.Usage,
+                current_cap.UsagePage,
+                current_cap.LinkCollection,
+                current_cap.NotRange.Usage,
                 &value,
                 pre_parsed_data,
                 (PCHAR)raw_input->data.hid.bRawData,
@@ -136,11 +137,48 @@ namespace Touchpad
                 continue;
             }
 
-            const USAGE usage_page = value_caps[i].UsagePage;
-            const USAGE usage = value_caps[i].Range.UsageMin;
-            switch (value_caps[i].LinkCollection)
+            if (!current_cap.IsAbsolute)
+            {
+                printf("test");
+            }
+
+            const USAGE usage_page = current_cap.UsagePage;
+            const USAGE usage = current_cap.Range.UsageMin;
+            switch (current_cap.LinkCollection)
             {
             default:
+                switch (usage_page)
+                {
+                case HID_USAGE_PAGE_GENERIC:
+                    if (current_cap.NotRange.Usage == HID_USAGE_GENERIC_X)
+                    {
+                        parsed_contact.minimum_x = current_cap.LogicalMin;
+                        parsed_contact.maximum_x = current_cap.LogicalMax;
+                        parsed_contact.has_x_bounds = true;
+                    }
+                    else if (current_cap.NotRange.Usage == HID_USAGE_GENERIC_Y)
+                    {
+                        parsed_contact.minimum_y = current_cap.LogicalMin;
+                        parsed_contact.maximum_y = current_cap.LogicalMax;
+                        parsed_contact.has_y_bounds = true;
+                    }
+                    switch (usage)
+                    {
+                    case USAGE_DIGITIZER_X_COORDINATE:
+                        parsed_contact.x = static_cast<int>(value);
+                        break;
+                    case USAGE_DIGITIZER_Y_COORDINATE:
+                        parsed_contact.y = static_cast<int>(value);
+                        break;
+                    default: break;
+                    }
+                    break;
+                case HID_USAGE_PAGE_DIGITIZER:
+                    if (usage == USAGE_DIGITIZER_CONTACT_ID)
+                        parsed_contact.contact_id = static_cast<int>(value);
+                    break;
+                default: break;
+                }
                 if (usage_page == USAGE_PAGE_DIGITIZER_INFO && usage == USAGE_DIGITIZER_CONTACT_ID)
                     parsed_contact.contact_id = static_cast<int>(value);
                 else if (usage_page == USAGE_PAGE_DIGITIZER_VALUES && usage == USAGE_DIGITIZER_X_COORDINATE)
@@ -162,7 +200,7 @@ namespace Touchpad
                 if (HidP_GetUsages(
                     HidP_Input,
                     HID_USAGE_PAGE_DIGITIZER,
-                    value_caps[i].LinkCollection,
+                    current_cap.LinkCollection,
                     buttonUsageArray,
                     &_maxNumButtons,
                     pre_parsed_data,
@@ -182,7 +220,7 @@ namespace Touchpad
                     free(buttonUsageArray);
                 }
 
-                contacts.emplace_back(parsed_contact);
+                received_contacts.emplace_back(parsed_contact);
                 ids.push_back(parsed_contact.contact_id);
 
                 parsed_contact = {INIT_VALUE, INIT_VALUE, INIT_VALUE, false};
@@ -203,76 +241,105 @@ namespace Touchpad
             std::ostringstream debug;
             debug << "[RAW REPORTED DATA]\n\n";
             debug << "Interval: " << interval << "ms\n";
-            debug << DebugPoints(contacts);
+            debug << DebugPoints(received_contacts);
             DEBUG(debug.str());
         }
 
-        // Reorder the 'contacts' vector based on the filtered and sorted 'ids' vector
-        // This ensures that 'contacts' is sorted by 'contact_id' in ascending order
-        // and only includes 'contact_id's that are less than or equal to CONTACT_ID_MAXIMUM
-        ids.erase(std::remove_if(ids.begin(), ids.end(), [](const int id)
-        {
-            return id > CONTACT_ID_MAXIMUM || id <= 0;
-        }), ids.end());
+        UpdateTouchContactsState(received_contacts);
+        RaiseEventsIfNeeded();
+    }
 
-        for (const auto& id : ids)
+    void TouchProcessor::UpdateTouchContactsState(const std::vector<TouchContact>& received_contacts)
+    {
+        std::unordered_map<int, TouchContact> id_to_contact_map;
+        for (const auto& contact : parsed_contacts_)
         {
-            auto it = std::find_if(contacts.begin(), contacts.end(), [&](const TouchContact& tp)
-            {
-                return tp.contact_id == id;
-            });
-            if (it != contacts.end())
-                sorted_contacts.push_back(*it);
+            id_to_contact_map[contact.contact_id] = contact;
         }
 
-        data.contacts = sorted_contacts;
-        data.contact_count = GetContactCount(sorted_contacts);
-        data.can_perform_gesture = data.contact_count == EventListeners::NUM_TOUCH_CONTACTS_REQUIRED;
-
-        for (const TouchContact contact : sorted_contacts)
+        for (const auto& received_contact : received_contacts)
         {
-            for (const TouchContact previous_contact : parsed_contacts_)
-            {
-                if (previous_contact.contact_id != contact.contact_id)
-                    continue;
-
-                data.contacts = parsed_contacts_;
-
-                // Fire touch up event if there are no valid contact points on the touchpad surface on this report
-                const bool previous_has_contact = TouchPointsMadeContact(config->GetPreviousTouchContacts());
-                const bool has_contact = TouchPointsMadeContact(contacts);
-                const auto time = std::chrono::high_resolution_clock::now();
-                const bool touch_up_event = !has_contact && previous_has_contact;
-
-                if (log_debug)
-                {
-                    const auto interval = std::to_string(EventListeners::CalculateElapsedTimeMs(config->GetLastEvent(), time));
-                    std::stringstream debug;
-                    debug << "[RAISED EVENT]\n\n";
-                    debug << "TYPE: ";
-                    if (touch_up_event)
-                        debug << "TouchUpEvent";
-                    else
-                        debug << "TouchActivityEvent";
-                    debug << "\n";
-                    debug << "Interval: " << interval <<
-                        "ms\n";
-                    debug << DebugPoints(data.contacts);
-                    DEBUG(debug.str());
-                }
-                // Interpret the touch movement into events
-                if (touch_up_event)
-                    touch_up_event_.RaiseEvent(TouchUpEventArgs(time, &data, config->GetPreviousTouchContacts()));
-                else
-                    touch_activity_event_.RaiseEvent(
-                        TouchActivityEventArgs(time, &data, config->GetPreviousTouchContacts()));
-
-                config->SetLastEvent(time);
-                parsed_contacts_.clear();
-                break;
-            }
-            parsed_contacts_.emplace_back(contact);
+            // Is this a valid contact ID?
+            if (received_contact.contact_id > CONTACT_ID_MAXIMUM)
+                continue;
+            if (received_contact.x == 0 || received_contact.y == 0)
+                continue;
+            if (received_contact.has_x_bounds && (received_contact.x > received_contact.maximum_x || received_contact.x
+                < received_contact.minimum_x))
+                continue;
+            if (received_contact.has_y_bounds && (received_contact.y > received_contact.maximum_y || received_contact.y
+                < received_contact.minimum_y))
+                continue;
+            id_to_contact_map[received_contact.contact_id] = received_contact;
         }
+
+        parsed_contacts_.clear();
+        for (const auto& pair : id_to_contact_map)
+        {
+            parsed_contacts_.push_back(pair.second);
+        }
+
+        std::sort(parsed_contacts_.begin(), parsed_contacts_.end(), [](const TouchContact& a, const TouchContact& b)
+        {
+            return a.contact_id < b.contact_id;
+        });
+    }
+
+    void TouchProcessor::RaiseEventsIfNeeded()
+    {
+        const bool has_contact = TouchPointsMadeContact(parsed_contacts_);
+        const auto time = std::chrono::high_resolution_clock::now();
+
+        // Construct the TouchInputData object
+        TouchInputData touchInputData;
+        touchInputData.contacts = parsed_contacts_;
+        touchInputData.contact_count = parsed_contacts_.size();
+        touchInputData.can_perform_gesture = touchInputData.contact_count >=
+            EventListeners::NUM_TOUCH_CONTACTS_REQUIRED;
+
+        // Determine if a touch up event should be raised
+        const bool previous_has_contact = TouchPointsMadeContact(config->GetPreviousTouchContacts());
+        const bool touch_up_event = !has_contact && previous_has_contact || !has_contact && !previous_has_contact;
+
+        if (touch_up_event)
+        {
+            touch_up_event_.RaiseEvent(TouchUpEventArgs(time, &touchInputData, config->GetPreviousTouchContacts()));
+        }
+        else if (has_contact)
+        {
+            touch_activity_event_.RaiseEvent(
+                TouchActivityEventArgs(time, &touchInputData, config->GetPreviousTouchContacts()));
+        }
+
+        config->SetPreviousTouchContacts(parsed_contacts_);
+        config->SetLastEvent(time);
+
+        // Optionally, log the event details for debugging
+        if (config->LogDebug())
+        {
+            LogEventDetails(touch_up_event, time);
+        }
+
+        const auto it = std::remove_if(parsed_contacts_.begin(), parsed_contacts_.end(),
+                                       [](const TouchContact& tc) { return !tc.on_surface; });
+        parsed_contacts_.erase(it, parsed_contacts_.end());
+    }
+
+    void TouchProcessor::LogEventDetails(bool touch_up_event,
+                                         const std::chrono::high_resolution_clock::time_point& time) const
+    {
+        std::stringstream debug;
+        debug << "[RAISED EVENT]\n\n";
+        debug << "TYPE: ";
+        if (touch_up_event)
+            debug << "TouchUpEvent";
+        else
+            debug << "TouchActivityEvent";
+        debug << "\n";
+        debug << "Interval: " << std::to_string(EventListeners::CalculateElapsedTimeMs(config->GetLastEvent(), time)) <<
+            "ms\n";
+        debug << DebugPoints(parsed_contacts_);
+        DEBUG(debug.str());
     }
 
     std::string TouchProcessor::DebugPoints(const std::vector<TouchContact>& data)

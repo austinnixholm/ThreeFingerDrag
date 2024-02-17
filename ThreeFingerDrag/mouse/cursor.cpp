@@ -36,5 +36,12 @@ void Cursor::LeftMouseDown()
 
 void Cursor::LeftMouseUp()
 {
+    if (!IsLeftMouseDown())
+        return;
     SimulateClick(MOUSEEVENTF_LEFTUP);
+}
+
+bool Cursor::IsLeftMouseDown()
+{
+    return GetAsyncKeyState(VK_LBUTTON) & 0x8000;
 }

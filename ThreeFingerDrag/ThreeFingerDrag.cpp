@@ -503,7 +503,8 @@ void StartPeriodicUpdateThreads()
             {
                 continue;
             }
- 
+
+
             Cursor::LeftMouseUp();
             config->SetCancellationStarted(false);
             if (config->LogDebug())
