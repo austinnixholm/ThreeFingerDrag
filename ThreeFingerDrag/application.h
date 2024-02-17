@@ -16,7 +16,7 @@ namespace Application
     constexpr int VERSION_MINOR = 2;
     constexpr int VERSION_PATCH = 6;
 
-    constexpr int SNAPSHOT_VERSION = 1;
+    constexpr int VERSION_REVISION = 1;
     
     constexpr char VERSION_FILE_NAME[] = "version.txt";
 
@@ -28,7 +28,7 @@ namespace Application
 
         // If it's not a release build, then it's a snapshot
         if (!RELEASE_BUILD)
-            version += "." + std::to_string(SNAPSHOT_VERSION) + "-SNAPSHOT";
+            version += "." + std::to_string(VERSION_REVISION) + "-SNAPSHOT";
         
         return version;
     }
