@@ -250,7 +250,7 @@ namespace Touchpad
         for (const auto& received_contact : received_contacts)
         {
             // Is this a valid contact ID?
-            if (received_contact.contact_id > CONTACT_ID_MAXIMUM)
+            if (received_contact.contact_id > CONTACT_ID_MAXIMUM || received_contact.contact_id < 0)
                 continue;
             if (received_contact.x == 0 || received_contact.y == 0)
                 continue;
