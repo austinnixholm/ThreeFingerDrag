@@ -173,12 +173,6 @@ namespace Touchpad
                     break;
                 default: break;
                 }
-                if (usage_page == USAGE_PAGE_DIGITIZER_INFO && usage == USAGE_DIGITIZER_CONTACT_ID)
-                    parsed_contact.contact_id = static_cast<int>(value);
-                else if (usage_page == USAGE_PAGE_DIGITIZER_VALUES && usage == USAGE_DIGITIZER_X_COORDINATE)
-                    parsed_contact.x = static_cast<int>(value);
-                else if (usage_page == USAGE_PAGE_DIGITIZER_VALUES && usage == USAGE_DIGITIZER_Y_COORDINATE)
-                    parsed_contact.y = static_cast<int>(value);
                 break;
             }
 
@@ -254,12 +248,38 @@ namespace Touchpad
                 continue;
             if (received_contact.x == 0 || received_contact.y == 0)
                 continue;
-            if (received_contact.has_x_bounds && (received_contact.x > received_contact.maximum_x || received_contact.x
-                < received_contact.minimum_x))
-                continue;
-            if (received_contact.has_y_bounds && (received_contact.y > received_contact.maximum_y || received_contact.y
-                < received_contact.minimum_y))
-                continue;
+            if (received_contact.has_x_bounds)
+            {
+                const auto min_x = received_contact.minimum_x;
+                const auto max_x = received_contact.maximum_x;
+                
+                // Ignore contacts on the outer left & right edge
+                if (ValueWithinRange(received_contact.x, 0, MARGIN) || ValueWithinRange(
+                    received_contact.x, max_x - MARGIN, max_x))
+                {
+                    received_contact.on_surface = false;
+                }
+                else if (!ValueWithinRange(received_contact.x, min_x, max_x))
+                {
+                    continue;
+                }
+            }
+            if (received_contact.has_y_bounds)
+            {
+                const auto min_y = received_contact.minimum_y;
+                const auto max_y = received_contact.maximum_y;
+                
+                // Ignore contacts on the outer top & bottom edge
+                if (ValueWithinRange(received_contact.y, 0, MARGIN) || ValueWithinRange(
+                    received_contact.y, max_y - MARGIN, max_y))
+                {
+                    received_contact.on_surface = false;
+                }
+                else if (!ValueWithinRange(received_contact.x, min_y, max_y))
+                {
+                    continue;
+                }
+            }
             id_to_contact_map[received_contact.contact_id] = received_contact;
         }
 
@@ -346,19 +366,6 @@ namespace Touchpad
         return oss.str();
     }
 
-
-    int TouchProcessor::GetContactCount(const std::vector<TouchContact>& data)
-    {
-        int count = 0;
-        for (const TouchContact point : data)
-        {
-            if (point.contact_id > CONTACT_ID_MAXIMUM || point.x == 0 || point.y == 0)
-                continue;
-            count++;
-        }
-        return count;
-    }
-
     /**
      * \returns true if any of the given touch points are contacting the surface of the touchpad.
      */
@@ -368,5 +375,10 @@ namespace Touchpad
         {
             return p.on_surface;
         });
+    }
+
+    bool TouchProcessor::ValueWithinRange(const int value, const int minimum, const int maximum)
+    {
+        return value < maximum && value > minimum;
     }
 }

@@ -7,6 +7,8 @@ namespace Touchpad
 {
     constexpr auto INIT_VALUE = 65535;
     constexpr auto CONTACT_ID_MAXIMUM = 64;
+    constexpr auto CONTACT_ID_MINIMUM = 0;
+    constexpr auto MARGIN = 50;
     constexpr auto USAGE_PAGE_DIGITIZER_VALUES = 0x01;
     constexpr auto USAGE_PAGE_DIGITIZER_INFO = 0x0D;
     constexpr auto USAGE_DIGITIZER_SCAN_TIME = 0x56;
@@ -47,8 +49,8 @@ namespace Touchpad
         void UpdateTouchContactsState(const std::vector<TouchContact>& received_contacts);
         void RaiseEventsIfNeeded();
         void LogEventDetails(bool touch_up_event, const std::chrono::high_resolution_clock::time_point& time) const;
+        static bool ValueWithinRange(int value, int minimum, int maximum);
         static std::string DebugPoints(const std::vector<TouchContact>& data);
-        static int GetContactCount(const std::vector<TouchContact>& data);
 
         /**
          * \returns true if any of the given touch points are contacting the surface of the touchpad.
