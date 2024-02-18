@@ -2,13 +2,13 @@
 #include "../framework.h"
 #include "event_listeners.h"
 #include <vector>
+#include <mutex>
 
 namespace Touchpad
 {
     constexpr auto INIT_VALUE = 65535;
     constexpr auto CONTACT_ID_MAXIMUM = 64;
     constexpr auto CONTACT_ID_MINIMUM = 0;
-    constexpr auto MARGIN = 50;
     constexpr auto USAGE_PAGE_DIGITIZER_VALUES = 0x01;
     constexpr auto USAGE_PAGE_DIGITIZER_INFO = 0x0D;
     constexpr auto USAGE_DIGITIZER_SCAN_TIME = 0x56;
@@ -31,6 +31,8 @@ namespace Touchpad
          * @param lParam LPARAM containing the touch data.
          */
         void ParseRawTouchData(LPARAM lParam);
+
+        void ClearContacts();
 
         TouchProcessor(const TouchProcessor& other) = delete; // Disallow copy constructor
         TouchProcessor(TouchProcessor&& other) noexcept = delete; // Disallow move constructor
@@ -56,6 +58,7 @@ namespace Touchpad
          * \returns true if any of the given touch points are contacting the surface of the touchpad.
          */
         static bool TouchPointsMadeContact(const std::vector<TouchContact>& points);
+        static int CountTouchPointsMakingContact(const std::vector<TouchContact>& points);
 
         EventListeners::TouchActivityListener activity_listener_;
         EventListeners::TouchUpListener touch_up_listener_;
@@ -63,6 +66,7 @@ namespace Touchpad
         Event<TouchActivityEventArgs> touch_activity_event_;
         Event<TouchUpEventArgs> touch_up_event_;
         std::vector<TouchContact> parsed_contacts_;
+        mutable std::mutex contacts_mutex_;
 
         GlobalConfig* config;
     };

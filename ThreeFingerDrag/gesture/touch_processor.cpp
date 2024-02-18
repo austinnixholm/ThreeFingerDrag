@@ -24,6 +24,11 @@ namespace Touchpad
         auto a = std::async(std::launch::async, [&] { InterpretRawInput((HRAWINPUT)lParam); });
     }
 
+    void TouchProcessor::ClearContacts()
+    {
+        parsed_contacts_.clear();
+    }
+
     /**
      * \brief Retrieves touchpad input data from a raw input handle.
      * \param hRawInputHandle Handle to the raw input.
@@ -218,13 +223,18 @@ namespace Touchpad
         HeapFree(hHeap, 0, pre_parsed_data);
         HeapFree(hHeap, 0, value_caps);
 
+        const auto interval = EventListeners::CalculateElapsedTimeMs(
+            config->GetLastEvent(), std::chrono::high_resolution_clock::now());
+
+        // Clear any old contact data if enough time has passed
+        if (interval > config->GetCancellationDelayMs())
+            ClearContacts();
+
         if (log_debug)
         {
-            const auto interval = std::to_string(EventListeners::CalculateElapsedTimeMs(
-                config->GetLastEvent(), std::chrono::high_resolution_clock::now()));
             std::ostringstream debug;
             debug << "[RAW REPORTED DATA]\n\n";
-            debug << "Interval: " << interval << "ms\n";
+            debug << "Interval: " << std::to_string(interval) << "ms\n";
             debug << DebugPoints(received_contacts);
             DEBUG(debug.str());
         }
@@ -235,6 +245,7 @@ namespace Touchpad
 
     void TouchProcessor::UpdateTouchContactsState(const std::vector<TouchContact>& received_contacts)
     {
+        std::lock_guard lock(contacts_mutex_);
         std::unordered_map<int, TouchContact> id_to_contact_map;
         for (const auto& contact : parsed_contacts_)
         {
@@ -252,33 +263,15 @@ namespace Touchpad
             {
                 const auto min_x = received_contact.minimum_x;
                 const auto max_x = received_contact.maximum_x;
-                
-                // Ignore contacts on the outer left & right edge
-                if (ValueWithinRange(received_contact.x, 0, MARGIN) || ValueWithinRange(
-                    received_contact.x, max_x - MARGIN, max_x))
-                {
-                    received_contact.on_surface = false;
-                }
-                else if (!ValueWithinRange(received_contact.x, min_x, max_x))
-                {
+                if (!ValueWithinRange(received_contact.x, min_x, max_x))
                     continue;
-                }
             }
             if (received_contact.has_y_bounds)
             {
                 const auto min_y = received_contact.minimum_y;
                 const auto max_y = received_contact.maximum_y;
-                
-                // Ignore contacts on the outer top & bottom edge
-                if (ValueWithinRange(received_contact.y, 0, MARGIN) || ValueWithinRange(
-                    received_contact.y, max_y - MARGIN, max_y))
-                {
-                    received_contact.on_surface = false;
-                }
-                else if (!ValueWithinRange(received_contact.x, min_y, max_y))
-                {
+                if (!ValueWithinRange(received_contact.x, min_y, max_y))
                     continue;
-                }
             }
             id_to_contact_map[received_contact.contact_id] = received_contact;
         }
@@ -297,18 +290,21 @@ namespace Touchpad
 
     void TouchProcessor::RaiseEventsIfNeeded()
     {
-        const bool has_contact = TouchPointsMadeContact(parsed_contacts_);
+        std::lock_guard lock(contacts_mutex_);
+        const int current_contact_count = CountTouchPointsMakingContact(parsed_contacts_);
+        const bool has_contact = current_contact_count > 0;
         const auto time = std::chrono::high_resolution_clock::now();
 
         // Construct the TouchInputData object
         TouchInputData touchInputData;
         touchInputData.contacts = parsed_contacts_;
         touchInputData.contact_count = parsed_contacts_.size();
-        touchInputData.can_perform_gesture = touchInputData.contact_count ==
+        touchInputData.can_perform_gesture = current_contact_count ==
             EventListeners::NUM_TOUCH_CONTACTS_REQUIRED;
 
         // Determine if a touch up event should be raised
-        const bool previous_has_contact = TouchPointsMadeContact(config->GetPreviousTouchContacts());
+        const int previous_contact_count = CountTouchPointsMakingContact(config->GetPreviousTouchContacts());
+        const bool previous_has_contact = previous_contact_count > 0;
         const bool touch_up_event = !has_contact && previous_has_contact || !has_contact && !previous_has_contact;
 
         if (touch_up_event)
@@ -321,14 +317,14 @@ namespace Touchpad
                 TouchActivityEventArgs(time, &touchInputData, config->GetPreviousTouchContacts()));
         }
 
-        config->SetPreviousTouchContacts(parsed_contacts_);
-        config->SetLastEvent(time);
-
         // Optionally, log the event details for debugging
         if (config->LogDebug())
         {
             LogEventDetails(touch_up_event, time);
         }
+
+        config->SetPreviousTouchContacts(parsed_contacts_);
+        config->SetLastEvent(time);
 
         const auto it = std::remove_if(parsed_contacts_.begin(), parsed_contacts_.end(),
                                        [](const TouchContact& tc) { return !tc.on_surface; });
@@ -361,7 +357,12 @@ namespace Touchpad
             oss << "[ID: " << contact.contact_id
                 << ", X: " << contact.x
                 << ", Y: " << contact.y
-                << ", On Surface: " << (contact.on_surface ? "Yes" : "No") << "]\n";
+                << ", On Surface: " << (contact.on_surface ? "Yes" : "No") << "]";
+            if (contact.has_x_bounds)
+                oss << ", X Boundary: (min=" << contact.minimum_x << ", max=" << contact.maximum_x << ")";
+            if (contact.has_y_bounds)
+                oss << ", Y Boundary: (min=" << contact.minimum_y << ", max=" << contact.maximum_y << ")";
+            oss << "\n";
         }
         return oss.str();
     }
@@ -371,11 +372,20 @@ namespace Touchpad
      */
     bool TouchProcessor::TouchPointsMadeContact(const std::vector<TouchContact>& points)
     {
-        return std::any_of(points.begin(), points.end(), [](TouchContact p)
+        return std::any_of(points.begin(), points.end(), [](const TouchContact& p)
         {
             return p.on_surface;
         });
     }
+
+    int TouchProcessor::CountTouchPointsMakingContact(const std::vector<TouchContact>& points)
+    {
+        return std::count_if(points.begin(), points.end(), [](const TouchContact& p)
+        {
+            return p.on_surface;
+        });
+    }
+
 
     bool TouchProcessor::ValueWithinRange(const int value, const int minimum, const int maximum)
     {
