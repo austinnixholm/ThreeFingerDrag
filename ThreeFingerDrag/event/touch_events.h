@@ -17,7 +17,6 @@ public:
         : data(data), previous_data(previous_data), time(time)
     {
     }
-    TouchActivityEventArgs(): data(nullptr), previous_data({}), time({}){}
 };
 
 class TouchUpEventArgs : public TouchActivityEventArgs

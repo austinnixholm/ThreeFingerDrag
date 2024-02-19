@@ -367,17 +367,6 @@ namespace Touchpad
         return oss.str();
     }
 
-    /**
-     * \returns true if any of the given touch points are contacting the surface of the touchpad.
-     */
-    bool TouchProcessor::TouchPointsMadeContact(const std::vector<TouchContact>& points)
-    {
-        return std::any_of(points.begin(), points.end(), [](const TouchContact& p)
-        {
-            return p.on_surface;
-        });
-    }
-
     int TouchProcessor::CountTouchPointsMakingContact(const std::vector<TouchContact>& points)
     {
         return std::count_if(points.begin(), points.end(), [](const TouchContact& p)
@@ -385,7 +374,6 @@ namespace Touchpad
             return p.on_surface;
         });
     }
-
 
     bool TouchProcessor::ValueWithinRange(const int value, const int minimum, const int maximum)
     {

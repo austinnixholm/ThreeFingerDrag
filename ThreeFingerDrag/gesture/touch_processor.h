@@ -53,11 +53,7 @@ namespace Touchpad
         void LogEventDetails(bool touch_up_event, const std::chrono::high_resolution_clock::time_point& time) const;
         static bool ValueWithinRange(int value, int minimum, int maximum);
         static std::string DebugPoints(const std::vector<TouchContact>& data);
-
-        /**
-         * \returns true if any of the given touch points are contacting the surface of the touchpad.
-         */
-        static bool TouchPointsMadeContact(const std::vector<TouchContact>& points);
+        
         static int CountTouchPointsMakingContact(const std::vector<TouchContact>& points);
 
         EventListeners::TouchActivityListener activity_listener_;

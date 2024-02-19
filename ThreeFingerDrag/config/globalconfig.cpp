@@ -12,7 +12,6 @@ GlobalConfig::GlobalConfig()
     gesture_started_ = false;
     cancellation_started_ = false;
     log_debug_ = false;
-    previous_activity_event_args_ = TouchActivityEventArgs();
 }
 
 GlobalConfig* GlobalConfig::GetInstance()
@@ -101,18 +100,6 @@ void GlobalConfig::SetPreviousTouchContacts(const std::vector<TouchContact>& dat
 {
     previous_touch_contacts_ = data;
 }
-
-TouchActivityEventArgs GlobalConfig::GetPreviousActivityEvent() const
-{
-    return previous_activity_event_args_;
-}
-
-
-void GlobalConfig::SetPreviousActivityEvent(const TouchActivityEventArgs& event)
-{
-    previous_activity_event_args_ = event;
-}
-
 
 bool GlobalConfig::LogDebug() const
 {

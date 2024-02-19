@@ -38,7 +38,6 @@ namespace EventListeners
         void OnTouchActivity(const TouchActivityEventArgs& args)
         {
             config->SetPreviousTouchContacts(args.data->contacts);
-            config->SetPreviousActivityEvent(args);
 
             // Check if it's the initial gesture
             const bool is_dragging = Cursor::IsLeftMouseDown();
