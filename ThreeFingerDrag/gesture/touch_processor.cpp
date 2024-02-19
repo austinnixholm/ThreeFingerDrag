@@ -270,7 +270,7 @@ namespace Touchpad
             {
                 const auto min_y = received_contact.minimum_y;
                 const auto max_y = received_contact.maximum_y;
-                if (!ValueWithinRange(received_contact.x, min_y, max_y))
+                if (!ValueWithinRange(received_contact.y, min_y, max_y))
                     continue;
             }
             id_to_contact_map[received_contact.contact_id] = received_contact;
