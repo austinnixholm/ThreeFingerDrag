@@ -111,4 +111,28 @@ void GlobalConfig::SetLogDebug(bool log)
     log_debug_ = log;
 }
 
+int GlobalConfig::GetLastContactCount() const
+{
+    return last_contact_count_;
+}
+
+void GlobalConfig::SetLastContactCount(int count)
+{
+    last_contact_count_ = count;
+}
+
+std::chrono::time_point<std::chrono::steady_clock> GlobalConfig::GetLastOneFingerSwitchTime() const
+{
+    return last_one_finger_switch_time_;
+}
+
+void GlobalConfig::SetLastOneFingerSwitchTime(std::chrono::time_point<std::chrono::steady_clock> time)
+{
+    last_one_finger_switch_time_ = time;
+}
+
+
+
+
+
 

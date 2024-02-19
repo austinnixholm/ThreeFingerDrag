@@ -247,18 +247,21 @@ namespace Touchpad
     {
         std::lock_guard lock(contacts_mutex_);
         std::unordered_map<int, TouchContact> id_to_contact_map;
+
         for (const auto& contact : parsed_contacts_)
         {
             id_to_contact_map[contact.contact_id] = contact;
         }
 
+        // Validate each received contact and filter out unwanted data
         for (const auto& received_contact : received_contacts)
         {
-            // Is this a valid contact ID?
             if (received_contact.contact_id > CONTACT_ID_MAXIMUM || received_contact.contact_id < 0)
                 continue;
+
             if (received_contact.x == 0 || received_contact.y == 0)
                 continue;
+
             if (received_contact.has_x_bounds)
             {
                 const auto min_x = received_contact.minimum_x;

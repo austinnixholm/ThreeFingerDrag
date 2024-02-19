@@ -38,7 +38,7 @@ namespace EventListeners
         void OnTouchActivity(const TouchActivityEventArgs& args)
         {
             config->SetPreviousTouchContacts(args.data->contacts);
-
+            
             // Check if it's the initial gesture
             const bool is_dragging = Cursor::IsLeftMouseDown();
             const bool is_initial_gesture = !is_dragging && args.data->can_perform_gesture;
@@ -68,7 +68,25 @@ namespace EventListeners
             // Ignore initial movement
             if (ms_since_gesture_start <= GESTURE_START_THRESHOLD_MS)
                 return;
+            
+            const auto contact_count = args.data->contact_count;
 
+            // Switched to one finger during gesture
+            if (contact_count == 1 && config->GetLastContactCount() == 1)
+            {
+                const float ms_since_last_switch = CalculateElapsedTimeMs(config->GetLastOneFingerSwitchTime(), current_time);
+                
+                // After a short delay, stop continuing the gesture movement from this event in favor of
+                // default touchpad cursor movement to prevent input flooding.
+                if (ms_since_last_switch > INACTIVITY_THRESHOLD_MS)
+                    return;
+            }
+            
+            if (config->IsGestureStarted() && config->GetLastContactCount() > 1 && contact_count == 1)
+                config->SetLastOneFingerSwitchTime(current_time);
+            
+            config->SetLastContactCount(contact_count);
+            
             // If invalid amount of fingers, and gesture is not currently performing
             if (!args.data->can_perform_gesture && !is_dragging)
                 return;
