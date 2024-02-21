@@ -78,7 +78,7 @@ namespace EventListeners
                 
                 // After a short delay, stop continuing the gesture movement from this event in favor of
                 // default touchpad cursor movement to prevent input flooding.
-                if (ms_since_last_switch > INACTIVITY_THRESHOLD_MS)
+                if (ms_since_last_switch > config->GetOneFingerTransitionDelayMs())
                     return;
             }
             
