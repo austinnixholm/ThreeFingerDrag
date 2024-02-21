@@ -29,7 +29,7 @@ WizardStyle=modern
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "build\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "build\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion; AfterInstall: WriteInstallPathToFile
 Source: "{#MyAppName}\{#MyAppName}.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppName}\small.ico"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
@@ -43,3 +43,13 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+procedure WriteInstallPathToFile;
+var
+  FilePath: string;
+begin
+  FilePath := ExpandConstant('{localappdata}\tfd_install_location.txt');
+  // Write the installation path to the text file, overwriting any existing file
+  SaveStringToFile(FilePath, ExpandConstant('{app}'), False);
+end;

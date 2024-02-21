@@ -54,11 +54,10 @@ public:
 private:
     /**
      * @brief Constructs the logger and opens the file for writing log lines to.
-     * @param localAppDataFolderName The application folder name.
      *
      * If the folder or file do not exist, they will be created.
      */
-    Logger(const std::string& localAppDataFolderName, const std::string& logFileName);
+    Logger(const std::string& logFileName);
 
     std::ofstream log_file_; ///< The log file stream.
     std::string log_file_path_; ///< The path to the log file.

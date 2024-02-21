@@ -43,6 +43,17 @@ namespace Application
      */
     inline std::string GetConfigurationFolderPath()
     {
+        if (!config_folder_path.empty())
+        {
+            return config_folder_path;
+        }
+        
+        if (config->IsPortableMode())
+        {
+            config_folder_path = std::filesystem::current_path().u8string();
+            return config_folder_path;
+        }
+        
         size_t len;
         char* env_path;
         const errno_t err = _dupenv_s(&env_path, &len, "LOCALAPPDATA");
@@ -100,6 +111,8 @@ namespace Application
 
         ini["Configuration"]["gesture_speed"] = ss.str();
         ini["Configuration"]["cancellation_delay_ms"] = std::to_string(config->GetCancellationDelayMs());
+        ini["Configuration"]["automatic_timeout_delay_ms"] = std::to_string(config->GetAutomaticTimeoutDelayMs());
+        ini["Configuration"]["one_finger_transition_delay_ms"] = std::to_string(config->GetOneFingerTransitionDelayMs());
         ini["Configuration"]["debug"] = config->LogDebug() ? "true" : "false";
 
         if (!file.generate(ini))
@@ -139,6 +152,12 @@ namespace Application
         if (config_section.has("cancellation_delay_ms"))
             config->SetCancellationDelayMs(std::stof(config_section.get("cancellation_delay_ms")));
 
+        if (config_section.has("automatic_timeout_delay_ms"))
+            config->SetAutomaticTimeoutDelayMs(std::stof(config_section.get("automatic_timeout_delay_ms")));
+        
+        if (config_section.has("one_finger_transition_delay_ms"))
+            config->SetOneFingerTransitionDelayMs(std::stof(config_section.get("one_finger_transition_delay_ms")));
+        
         if (config_section.has("debug"))
             config->SetLogDebug(config_section.get("debug") == "true");
     }
@@ -149,4 +168,36 @@ namespace Application
         GetModuleFileNameW(nullptr, path, FILENAME_MAX);
         return std::filesystem::path(path);
     }
+
+    inline void CheckPortableMode()
+    {
+        size_t len;
+        char* env_path;
+        const errno_t err = _dupenv_s(&env_path, &len, "LOCALAPPDATA");
+
+        auto file_path = std::string(env_path);
+        file_path += "\\";
+        file_path += "tfd_install_location.txt";
+
+        std::ifstream file;
+        file.open(file_path);
+
+        // No file was found, so the program probably wasn't installed
+        if (!file.good())
+        {
+            config->SetPortableMode(true);
+            return;
+        }
+
+        std::string firstLine;
+        std::getline(file, firstLine);
+
+        if (firstLine.empty())
+        {
+            return;
+        }
+        // Determine if the program is not running from its installed location
+        config->SetPortableMode(ExePath().u8string().find(firstLine) == std::string::npos);
+    }
+    
 }

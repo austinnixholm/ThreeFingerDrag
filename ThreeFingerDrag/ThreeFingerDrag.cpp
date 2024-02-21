@@ -75,7 +75,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                       _In_ LPWSTR lpCmdLine,
                       _In_ int nCmdShow)
 {
-    // TODO: check started as portable
+    Application::CheckPortableMode();
+    
     current_instance = hInstance;
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
@@ -530,7 +531,7 @@ void StartPeriodicUpdateThreads()
             {
                 const auto now = std::chrono::high_resolution_clock::now();
                 const auto ms_since_last_touch_event = EventListeners::CalculateElapsedTimeMs(config->GetLastEvent(), now);
-                if (ms_since_last_touch_event > EventListeners::INACTIVITY_THRESHOLD_MS)
+                if (ms_since_last_touch_event > config->GetAutomaticTimeoutDelayMs())
                 {
                     EventListeners::CancelGesture();
                     touch_processor.ClearContacts();
@@ -679,8 +680,11 @@ void InitializeConfiguration()
 
 void PromptUserForStartupPreference()
 {
-    if (Popups::DisplayPrompt("Would you like run ThreeFingerDrag on startup of Windows?", "ThreeFingerDrag"))
-        AddStartupTask();
+    if (!TaskScheduler::TaskExists("ThreeFingerDrag"))
+    {
+        if (Popups::DisplayPrompt("Would you like run ThreeFingerDrag on startup of Windows?", "ThreeFingerDrag"))
+            AddStartupTask();
+    }
     Popups::ShowToastNotification(L"To change your sensitivity, access your settings via the tray icon.",
                                   L"Welcome to ThreeFingerDrag!");
 }
@@ -698,6 +702,13 @@ void PerformAdditionalSteps()
         TaskScheduler::CreateLoginTask("ThreeFingerDrag", Application::ExePath().u8string());
     }
 
+    if (config->IsPortableMode())
+    {
+        INFO("Running in portable mode.");
+        INFO(Application::config_folder_path);
+    } else
+        INFO("Running from installed path.");
+    
     // Notify the user if debug mode is enabled
     if (config->LogDebug())
         Popups::ShowToastNotification(L"To find logs & configuration, click 'Open Config' in the tray menu.",

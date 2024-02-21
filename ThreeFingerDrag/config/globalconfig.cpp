@@ -7,6 +7,8 @@ GlobalConfig::GlobalConfig()
     // Set default values
     gesture_speed_ = DEFAULT_ACCELERATION_FACTOR;
     cancellation_delay_ms_ = DEFAULT_CANCELLATION_DELAY_MS;
+    automatic_timeout_delay_ms = DEFAULT_AUTOMATIC_TIMEOUT_DELAY_MS;
+    one_finger_transition_delay_ms_ = DEFAULT_ONE_FINGER_TRANSITION_DELAY_MS;
     precision_touch_cursor_speed_ = DEFAULT_PRECISION_CURSOR_SPEED;
     mouse_cursor_speed_ = DEFAULT_MOUSE_CURSOR_SPEED;
     gesture_started_ = false;
@@ -131,8 +133,32 @@ void GlobalConfig::SetLastOneFingerSwitchTime(std::chrono::time_point<std::chron
     last_one_finger_switch_time_ = time;
 }
 
+int GlobalConfig::GetOneFingerTransitionDelayMs() const
+{
+    return one_finger_transition_delay_ms_;
+}
 
+void GlobalConfig::SetOneFingerTransitionDelayMs(int delay)
+{
+    one_finger_transition_delay_ms_ = delay;
+}
 
+bool GlobalConfig::IsPortableMode() const
+{
+    return portable_mode_;
+}
 
+void GlobalConfig::SetPortableMode(bool portable)
+{
+    portable_mode_ = portable;
+}
 
+int GlobalConfig::GetAutomaticTimeoutDelayMs() const
+{
+    return automatic_timeout_delay_ms;
+}
 
+void GlobalConfig::SetAutomaticTimeoutDelayMs(int delay)
+{
+    automatic_timeout_delay_ms = delay;
+}
