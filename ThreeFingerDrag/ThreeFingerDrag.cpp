@@ -75,6 +75,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                       _In_ LPWSTR lpCmdLine,
                       _In_ int nCmdShow)
 {
+    Application::CheckPortableMode();
+    
     current_instance = hInstance;
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
@@ -96,7 +98,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     StartPeriodicUpdateThreads();
     PerformAdditionalSteps();
-    
+
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0))
     {
@@ -142,10 +144,10 @@ BOOL InitInstance()
     }
     if (log)
         DEBUG("Registered raw input device.");
-    
+
     // Show the settings icon
     Shell_NotifyIcon(NIM_ADD, &tray_icon_data);
-    
+
     if (config->LogDebug())
         DEBUG("Application initialized successfully!");
     return TRUE;
@@ -440,7 +442,7 @@ void CreateTrayMenu(const HWND hWnd)
     // Add the menu items
     AppendMenu(hMenu, MF_STRING, ID_SETTINGS_MENUITEM, TEXT("Settings"));
     AppendMenu(hMenu, MF_STRING, ID_OPEN_CONFIG_FOLDER, TEXT("Open Config"));
-    
+
     // Add a separator and the "Exit" menu item.
     AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
     AppendMenu(hMenu, MF_STRING, ID_QUIT_MENUITEM, TEXT("Exit"));
@@ -492,22 +494,51 @@ void StartPeriodicUpdateThreads()
         while (application_running)
         {
             std::this_thread::sleep_for(TOUCH_ACTIVITY_PERIOD_MS);
-            if (!config->IsCancellationStarted())
+
+            if (Cursor::IsLeftMouseDown() && config->IsGestureStarted())
             {
-                continue;
+                const auto interval = EventListeners::CalculateElapsedTimeMs(
+                    config->GetLastEvent(), std::chrono::high_resolution_clock::now());
+                if (interval > config->GetCancellationDelayMs())
+                {
+                    EventListeners::CancelGesture();
+                    touch_processor.ClearContacts();
+                    if (config->LogDebug())
+                        DEBUG("Cancelled gesture (automatic timeout).");
+                }
             }
-            const auto now = std::chrono::high_resolution_clock::now();
-            const std::chrono::duration<float> duration = now - config->GetCancellationTime();
-            const float ms_since_cancellation = duration.count() * 1000.0f;
-            if (ms_since_cancellation < config->GetCancellationDelayMs())
+
+            // Only continue if a cancellation was initiated, or if the gesture is ongoing
+            if (!config->IsCancellationStarted() && !config->IsGestureStarted())
+                continue;
+            
+            if (config->IsCancellationStarted()) // Check for cancellation timeout started by user
             {
-                continue;
+                const auto now = std::chrono::high_resolution_clock::now();
+                const std::chrono::duration<float> duration = now - config->GetCancellationTime();
+                const float ms_since_cancellation = duration.count() * 1000.0f;
+                if (ms_since_cancellation < config->GetCancellationDelayMs())
+                {
+                    continue;
+                }
+
+                EventListeners::CancelGesture();
+                touch_processor.ClearContacts();
+                if (config->LogDebug())
+                    DEBUG("Cancelled gesture (cancellation timeout).");
             }
- 
-            Cursor::LeftMouseUp();
-            config->SetCancellationStarted(false);
-            if (config->LogDebug())
-                DEBUG("Cancelled gesture (cancellation timeout).");
+            else if (Cursor::IsLeftMouseDown()) // Check for automatic gesture timeout (failsafe)
+            {
+                const auto now = std::chrono::high_resolution_clock::now();
+                const auto ms_since_last_touch_event = EventListeners::CalculateElapsedTimeMs(config->GetLastEvent(), now);
+                if (ms_since_last_touch_event > config->GetAutomaticTimeoutDelayMs())
+                {
+                    EventListeners::CancelGesture();
+                    touch_processor.ClearContacts();
+                    if (config->LogDebug())
+                        DEBUG("Cancelled gesture (automatic timeout).");
+                }
+            }
         }
     });
 }
@@ -649,8 +680,11 @@ void InitializeConfiguration()
 
 void PromptUserForStartupPreference()
 {
-    if (Popups::DisplayPrompt("Would you like run ThreeFingerDrag on startup of Windows?", "ThreeFingerDrag"))
-        AddStartupTask();
+    if (!TaskScheduler::TaskExists("ThreeFingerDrag"))
+    {
+        if (Popups::DisplayPrompt("Would you like run ThreeFingerDrag on startup of Windows?", "ThreeFingerDrag"))
+            AddStartupTask();
+    }
     Popups::ShowToastNotification(L"To change your sensitivity, access your settings via the tray icon.",
                                   L"Welcome to ThreeFingerDrag!");
 }
@@ -668,9 +702,17 @@ void PerformAdditionalSteps()
         TaskScheduler::CreateLoginTask("ThreeFingerDrag", Application::ExePath().u8string());
     }
 
+    if (config->IsPortableMode())
+    {
+        INFO("Running in portable mode.");
+        INFO(Application::config_folder_path);
+    } else
+        INFO("Running from installed path.");
+    
     // Notify the user if debug mode is enabled
     if (config->LogDebug())
-        Popups::ShowToastNotification(L"To find logs & configuration, click 'Open Config' in the tray menu.", L"(ThreeFingerDrag) Debug mode enabled!");
+        Popups::ShowToastNotification(L"To find logs & configuration, click 'Open Config' in the tray menu.",
+                                      L"(ThreeFingerDrag) Debug mode enabled!");
 }
 
 ATOM RegisterWindowClass(HINSTANCE hInstance, WCHAR* className, WNDPROC wndProc)

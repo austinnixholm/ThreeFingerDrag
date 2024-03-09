@@ -3,41 +3,32 @@
 #include <iomanip>
 #include <ctime>
 
+#include "../application.h"
+
 Logger& Logger::GetInstance()
 {
-    static Logger instance("ThreeFingerDrag", "log.txt");
+    static Logger instance("log.txt");
     return instance;
 }
 
-Logger::Logger(const std::string& localAppDataFolderName, const std::string& logFileName)
+Logger::Logger(const std::string& logFileName)
 {
-    size_t len;
-    char* env_path;
-    const errno_t err = _dupenv_s(&env_path, &len, "LOCALAPPDATA");
+    log_file_path_ = Application::GetConfigurationFolderPath();
 
-    // If the environment variable exists and can be retrieved successfully, use it to construct the path to the log file.
-    if (err == 0 && env_path != nullptr)
+    // Check if the folder exists, and create it if necessary
+    if (!std::filesystem::exists(log_file_path_))
+        std::filesystem::create_directory(log_file_path_);
+
+    log_file_path_ += "\\" + logFileName;
+
+    // Check if the log file exists, and create it if necessary
+    if (!std::filesystem::exists(log_file_path_))
     {
-        log_file_path_ = std::string(env_path);
-        log_file_path_ += "\\";
-        log_file_path_ += localAppDataFolderName;
-
-        // Check if the folder exists, and create it if necessary
-        if (!std::filesystem::exists(log_file_path_))
-            std::filesystem::create_directory(log_file_path_);
-
-        log_file_path_ += "\\" + logFileName;
-
-        // Check if the log file exists, and create it if necessary
-        if (!std::filesystem::exists(log_file_path_))
-        {
-            std::ofstream file(log_file_path_, std::ios::out);
-            file.close();
-        }
-
-        log_file_.open(log_file_path_, std::ios::out | std::ios::app);
-        free(env_path);
+        std::ofstream file(log_file_path_, std::ios::out);
+        file.close();
     }
+
+    log_file_.open(log_file_path_, std::ios::out | std::ios::app);
 }
 
 void Logger::WriteLog(const std::string& type, const std::string& message)

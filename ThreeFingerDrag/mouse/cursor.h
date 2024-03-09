@@ -8,4 +8,5 @@ public:
     static void MoveCursor(const double delta_x, const double delta_y);
     static void LeftMouseDown();
     static void LeftMouseUp();
+    static bool IsLeftMouseDown();
 };
