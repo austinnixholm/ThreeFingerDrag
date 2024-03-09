@@ -69,24 +69,6 @@ namespace EventListeners
             if (ms_since_gesture_start <= GESTURE_START_THRESHOLD_MS)
                 return;
             
-            const auto contact_count = args.data->contact_count;
-
-            // Switched to one finger during gesture
-            if (contact_count == 1 && config->GetLastContactCount() == 1)
-            {
-                const float ms_since_last_switch = CalculateElapsedTimeMs(config->GetLastOneFingerSwitchTime(), current_time);
-                
-                // After a short delay, stop continuing the gesture movement from this event in favor of
-                // default touchpad cursor movement to prevent input flooding.
-                if (ms_since_last_switch > config->GetOneFingerTransitionDelayMs())
-                    return;
-            }
-            
-            if (config->IsGestureStarted() && config->GetLastContactCount() > 1 && contact_count == 1)
-                config->SetLastOneFingerSwitchTime(current_time);
-            
-            config->SetLastContactCount(contact_count);
-            
             // If invalid amount of fingers, and gesture is not currently performing
             if (!args.data->can_perform_gesture && !is_dragging)
                 return;
@@ -145,6 +127,28 @@ namespace EventListeners
                 accumulated_delta_y_[i] += y_diff;
                 valid_touches++;
             }
+
+            const auto contact_count = args.data->contact_count;
+
+            // Switched to one finger during gesture
+            if (contact_count == 1 && config->GetLastContactCount() == 1)
+            {
+                const float ms_since_last_switch = CalculateElapsedTimeMs(config->GetLastOneFingerSwitchTime(), current_time);
+                
+                // After a short delay, stop continuing the gesture movement from this event in favor of
+                // default touchpad cursor movement to prevent input flooding.
+                if (ms_since_last_switch > config->GetOneFingerTransitionDelayMs())
+                {
+                    accumulated_delta_x_ = {0.0};
+                    accumulated_delta_y_ = {0.0};
+                    return;
+                }
+            }
+            
+            if (config->IsGestureStarted() && config->GetLastContactCount() > 1 && contact_count == 1)
+                config->SetLastOneFingerSwitchTime(current_time);
+            
+            config->SetLastContactCount(contact_count);
 
             // If there are not enough valid touches, return
             if (valid_touches < MIN_VALID_TOUCH_CONTACTS)
