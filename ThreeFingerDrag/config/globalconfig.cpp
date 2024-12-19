@@ -11,6 +11,8 @@ GlobalConfig::GlobalConfig()
     one_finger_transition_delay_ms_ = DEFAULT_ONE_FINGER_TRANSITION_DELAY_MS;
     precision_touch_cursor_speed_ = DEFAULT_PRECISION_CURSOR_SPEED;
     mouse_cursor_speed_ = DEFAULT_MOUSE_CURSOR_SPEED;
+    gesture_activation_threshold_ms_ = DEFAULT_GESTURE_START_THRESHOLD_MS;
+    last_touch_event_type_ = None;
     gesture_started_ = false;
     cancellation_started_ = false;
     log_debug_ = false;
@@ -161,4 +163,54 @@ int GlobalConfig::GetAutomaticTimeoutDelayMs() const
 void GlobalConfig::SetAutomaticTimeoutDelayMs(int delay)
 {
     automatic_timeout_delay_ms = delay;
+}
+
+int GlobalConfig::GetGestureActivationThresholdMs() const
+{
+    return gesture_activation_threshold_ms_;
+}
+
+void GlobalConfig::SetGestureActivationThresholdMs(int delay)
+{
+    gesture_activation_threshold_ms_ = delay;
+}
+
+bool GlobalConfig::IsUsingActivationThreshold() const
+{
+    return using_activation_threshold_;
+}
+
+void GlobalConfig::SetUsingActivationThreshold(bool flag)
+{
+    using_activation_threshold_ = flag;
+}
+
+TouchEventType GlobalConfig::GetLastTouchEventType() const
+{
+    return last_touch_event_type_;
+}
+
+void GlobalConfig::SetLastTouchEventType(TouchEventType type)
+{
+    last_touch_event_type_ = type;
+}
+
+std::chrono::time_point<std::chrono::steady_clock> GlobalConfig::GetLastInitialActivityTime() const
+{
+    return last_initial_activity_time_;
+}
+
+void GlobalConfig::SetLastInitialActivityTime(std::chrono::time_point<std::chrono::steady_clock> time)
+{
+    last_initial_activity_time_ = time;
+}
+
+bool GlobalConfig::DragCancelsOnFingerCountChange() const
+{
+    return drag_cancels_on_finger_count_change_;
+}
+
+void GlobalConfig::SetDragCancelsOnFingerCountChange(bool flag)
+{
+    drag_cancels_on_finger_count_change_ = flag;
 }

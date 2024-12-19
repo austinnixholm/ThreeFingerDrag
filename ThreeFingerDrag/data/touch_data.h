@@ -19,5 +19,5 @@ struct TouchInputData
 {
     std::vector<TouchContact> contacts;
     int contact_count = 0;
-    bool can_perform_gesture = false;
+    bool can_perform_initial_gesture = false;
 };

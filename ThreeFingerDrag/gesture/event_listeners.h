@@ -13,14 +13,19 @@ namespace EventListeners
     constexpr auto MIN_VALID_TOUCH_CONTACTS = 1;
     constexpr auto INACTIVITY_THRESHOLD_MS = 100;
     constexpr auto GESTURE_START_THRESHOLD_MS = 50;
+    constexpr auto FINGER_LIFT_TRANSITION_MS = 50;
 
     inline GlobalConfig* config = GlobalConfig::GetInstance();
+    
+    static std::chrono::time_point<std::chrono::steady_clock> finger_transition_start_;
+    static bool transition_timestamp_is_current_ = false;
 
     static void CancelGesture()
     {
         Cursor::LeftMouseUp();
         config->SetCancellationStarted(false);
         config->SetGestureStarted(false);
+        transition_timestamp_is_current_ = false;
         if (config->LogDebug())
             DEBUG("Cancelled gesture.");
     }
@@ -38,15 +43,23 @@ namespace EventListeners
         void OnTouchActivity(const TouchActivityEventArgs& args)
         {
             config->SetPreviousTouchContacts(args.data->contacts);
-            
+
             // Check if it's the initial gesture
             const bool is_dragging = Cursor::IsLeftMouseDown();
-            const bool is_initial_gesture = !is_dragging && args.data->can_perform_gesture;
+            const bool is_initial_gesture = !is_dragging && args.data->can_perform_initial_gesture;
             const auto current_time = args.time;
 
             // If it's the initial gesture, set the gesture start time
             if (is_initial_gesture && !config->IsGestureStarted())
             {
+                if (config->IsUsingActivationThreshold())
+                {
+                    const auto touch_start = config->GetLastInitialActivityTime();
+                    const auto elapsed_since_initial_activity = CalculateElapsedTimeMs(touch_start, current_time);
+
+                    if (elapsed_since_initial_activity > config->GetGestureActivationThresholdMs())
+                        return;
+                }
                 config->SetGestureStarted(true);
                 gesture_start_ = current_time;
                 if (config->LogDebug())
@@ -68,9 +81,9 @@ namespace EventListeners
             // Ignore initial movement
             if (ms_since_gesture_start <= GESTURE_START_THRESHOLD_MS)
                 return;
-            
+
             // If invalid amount of fingers, and gesture is not currently performing
-            if (!args.data->can_perform_gesture && !is_dragging)
+            if (!args.data->can_perform_initial_gesture && !is_dragging)
                 return;
 
             // Loop through each touch contact
@@ -103,7 +116,8 @@ namespace EventListeners
                     continue;
 
                 // Cancel immediately if a previous cancellation has begun, and this is a non-gesture movement
-                if (config->IsCancellationStarted() && !args.data->can_perform_gesture && config->IsGestureStarted())
+                if (config->IsCancellationStarted() && !args.data->can_perform_initial_gesture && config->
+                    IsGestureStarted())
                 {
                     CancelGesture();
                     return;
@@ -127,14 +141,41 @@ namespace EventListeners
                 accumulated_delta_y_[i] += y_diff;
                 valid_touches++;
             }
+            
+            if (config->DragCancelsOnFingerCountChange())
+            {
+                // Gesture is started, but finger count has changed
+                if (!args.data->can_perform_initial_gesture && config->IsGestureStarted() && is_dragging)
+                {
+                    // Set timestamp for when finger lift occurred
+                    if (!transition_timestamp_is_current_)
+                    {
+                        finger_transition_start_ = current_time;
+                        transition_timestamp_is_current_ = true;
+                    }
+
+                    // Only start cancellation if the finger has been lifted for longer than ~50ms
+                    const auto elapsed = CalculateElapsedTimeMs(finger_transition_start_, current_time);
+                    if (elapsed > FINGER_LIFT_TRANSITION_MS)
+                    {
+                        config->SetCancellationStarted(true);
+                        return;
+                    }
+                } else if (transition_timestamp_is_current_ && args.data->can_perform_initial_gesture && config->IsGestureStarted() && is_dragging)
+                {
+                    // Fingers were put back down during transition time. Mark to reset the timestamp if checked again
+                    transition_timestamp_is_current_ = false;
+                }
+            }
 
             const auto contact_count = args.data->contact_count;
 
             // Switched to one finger during gesture
             if (contact_count == 1 && config->GetLastContactCount() == 1)
             {
-                const float ms_since_last_switch = CalculateElapsedTimeMs(config->GetLastOneFingerSwitchTime(), current_time);
-                
+                const float ms_since_last_switch = CalculateElapsedTimeMs(
+                    config->GetLastOneFingerSwitchTime(), current_time);
+
                 // After a short delay, stop continuing the gesture movement from this event in favor of
                 // default touchpad cursor movement to prevent input flooding.
                 if (ms_since_last_switch > config->GetOneFingerTransitionDelayMs())
@@ -144,10 +185,10 @@ namespace EventListeners
                     return;
                 }
             }
-            
+
             if (config->IsGestureStarted() && config->GetLastContactCount() > 1 && contact_count == 1)
                 config->SetLastOneFingerSwitchTime(current_time);
-            
+
             config->SetLastContactCount(contact_count);
 
             // If there are not enough valid touches, return
@@ -194,6 +235,7 @@ namespace EventListeners
         std::array<double, MAX_CONTACT_SIZE> accumulated_delta_y_ = {0.0};
         std::array<std::chrono::time_point<std::chrono::steady_clock>, MAX_CONTACT_SIZE> movement_times_;
         std::chrono::time_point<std::chrono::steady_clock> gesture_start_;
+
     };
 
     class TouchUpListener
@@ -203,7 +245,7 @@ namespace EventListeners
         {
             config->SetPreviousTouchContacts(args.data->contacts);
 
-            if (config->IsCancellationStarted() || !config->IsGestureStarted())
+            if (!config->IsGestureStarted())
                 return;
 
             // Calculate the time elapsed since the last valid gesture movement

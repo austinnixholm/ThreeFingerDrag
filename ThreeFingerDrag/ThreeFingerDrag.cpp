@@ -127,6 +127,14 @@ BOOL InitInstance()
     }
     if (log)
         DEBUG("Initialized notifications.");
+
+    if (IsWindowsVersionOrGreater(HIBYTE(NTDDI_WIN10_RS2), LOBYTE(NTDDI_WIN10_RS2), 0)) {
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
+    else {
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+    }
+
     // Initialize tray icon, settings window
     if (!InitializeGUI())
     {

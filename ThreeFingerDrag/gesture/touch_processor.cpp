@@ -299,10 +299,10 @@ namespace Touchpad
         const auto time = std::chrono::high_resolution_clock::now();
 
         // Construct the TouchInputData object
-        TouchInputData touchInputData;
-        touchInputData.contacts = parsed_contacts_;
-        touchInputData.contact_count = parsed_contacts_.size();
-        touchInputData.can_perform_gesture = current_contact_count ==
+        TouchInputData touch_input_data;
+        touch_input_data.contacts = parsed_contacts_;
+        touch_input_data.contact_count = parsed_contacts_.size();
+        touch_input_data.can_perform_initial_gesture = current_contact_count ==
             EventListeners::NUM_TOUCH_CONTACTS_REQUIRED;
 
         // Determine if a touch up event should be raised
@@ -312,12 +312,12 @@ namespace Touchpad
 
         if (touch_up_event)
         {
-            touch_up_event_.RaiseEvent(TouchUpEventArgs(time, &touchInputData, config->GetPreviousTouchContacts()));
+            touch_up_event_.RaiseEvent(TouchUpEventArgs(time, &touch_input_data, config->GetPreviousTouchContacts()));
         }
         else if (has_contact)
         {
             touch_activity_event_.RaiseEvent(
-                TouchActivityEventArgs(time, &touchInputData, config->GetPreviousTouchContacts()));
+                TouchActivityEventArgs(time, &touch_input_data, config->GetPreviousTouchContacts()));
         }
 
         // Optionally, log the event details for debugging
@@ -328,6 +328,11 @@ namespace Touchpad
 
         config->SetPreviousTouchContacts(parsed_contacts_);
         config->SetLastEvent(time);
+
+        const TouchEventType raised_type = touch_up_event ? TouchUp : has_contact ? TouchActivity : None;
+        if (config->GetLastTouchEventType() == TouchUp && raised_type == TouchActivity)
+            config->SetLastInitialActivityTime(time);
+        config->SetLastTouchEventType(raised_type);
 
         const auto it = std::remove_if(parsed_contacts_.begin(), parsed_contacts_.end(),
                                        [](const TouchContact& tc) { return !tc.on_surface; });

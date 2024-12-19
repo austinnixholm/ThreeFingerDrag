@@ -10,26 +10,26 @@
 
 namespace Application
 {
-    constexpr bool RELEASE_BUILD = true;
+    constexpr bool RELEASE_BUILD = false;
 
     constexpr int VERSION_MAJOR = 1;
     constexpr int VERSION_MINOR = 2;
     constexpr int VERSION_PATCH = 6;
 
     constexpr int VERSION_REVISION = 0;
-    
+
     constexpr char VERSION_FILE_NAME[] = "version.txt";
 
     inline std::string GetVersionString()
     {
         std::string version = std::to_string(VERSION_MAJOR) + "." +
-                              std::to_string(VERSION_MINOR) + "." +
-                              std::to_string(VERSION_PATCH);
+            std::to_string(VERSION_MINOR) + "." +
+            std::to_string(VERSION_PATCH);
 
         // If it's not a release build, then it's a snapshot
         if (!RELEASE_BUILD)
             version += "." + std::to_string(VERSION_REVISION) + "-SNAPSHOT";
-        
+
         return version;
     }
 
@@ -47,13 +47,13 @@ namespace Application
         {
             return config_folder_path;
         }
-        
+
         if (config->IsPortableMode())
         {
             config_folder_path = std::filesystem::current_path().u8string();
             return config_folder_path;
         }
-        
+
         size_t len;
         char* env_path;
         const errno_t err = _dupenv_s(&env_path, &len, "LOCALAPPDATA");
@@ -100,7 +100,7 @@ namespace Application
     {
         std::stringstream ss;
         std::string file_path = GetConfigurationFolderPath();
-        
+
         file_path += "\\";
         file_path += "\\config.ini";
 
@@ -113,6 +113,9 @@ namespace Application
         ini["Configuration"]["cancellation_delay_ms"] = std::to_string(config->GetCancellationDelayMs());
         ini["Configuration"]["automatic_timeout_delay_ms"] = std::to_string(config->GetAutomaticTimeoutDelayMs());
         ini["Configuration"]["one_finger_transition_delay_ms"] = std::to_string(config->GetOneFingerTransitionDelayMs());
+        ini["Configuration"]["gesture_start_threshold_ms"] = std::to_string(config->GetGestureActivationThresholdMs());
+        ini["Configuration"]["using_gesture_start_threshold"] = config->IsUsingActivationThreshold() ? "true" : "false";
+        ini["Configuration"]["drag_cancels_on_finger_count_change"] = config->DragCancelsOnFingerCountChange() ? "true" : "false";
         ini["Configuration"]["debug"] = config->LogDebug() ? "true" : "false";
 
         if (!file.generate(ini))
@@ -122,7 +125,7 @@ namespace Application
     inline void ReadConfiguration()
     {
         std::string file_path = GetConfigurationFolderPath();
-        
+
         file_path += "\\";
         file_path += "\\config.ini";
 
@@ -131,15 +134,14 @@ namespace Application
             WriteConfiguration();
             return;
         }
-
-
+        
         mINI::INIFile file(file_path);
         mINI::INIStructure ini;
 
         if (!file.read(ini))
         {
             std::stringstream ss;
-            ss << "Couldn't read '" << file_path << "'";
+            ss << "Couldn't read config file at path '" << file_path << "'";
             ERROR(ss.str());
             return;
         }
@@ -154,9 +156,18 @@ namespace Application
 
         if (config_section.has("automatic_timeout_delay_ms"))
             config->SetAutomaticTimeoutDelayMs(std::stof(config_section.get("automatic_timeout_delay_ms")));
-        
+
         if (config_section.has("one_finger_transition_delay_ms"))
             config->SetOneFingerTransitionDelayMs(std::stof(config_section.get("one_finger_transition_delay_ms")));
+
+        if (config_section.has("gesture_start_threshold_ms"))
+            config->SetGestureActivationThresholdMs(std::stof(config_section.get("gesture_start_threshold_ms")));
+
+        if (config_section.has("using_gesture_start_threshold"))
+            config->SetUsingActivationThreshold(config_section.get("using_gesture_start_threshold") == "true");
+
+        if (config_section.has("drag_cancels_on_finger_count_change"))
+            config->SetDragCancelsOnFingerCountChange(config_section.get("drag_cancels_on_finger_count_change") == "true");
         
         if (config_section.has("debug"))
             config->SetLogDebug(config_section.get("debug") == "true");
@@ -199,5 +210,4 @@ namespace Application
         // Determine if the program is not running from its installed location
         config->SetPortableMode(ExePath().u8string().find(firstLine) == std::string::npos);
     }
-    
 }

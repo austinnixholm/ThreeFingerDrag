@@ -3,6 +3,11 @@
 #include "events.h"
 #include "../data/touch_data.h"
 
+enum TouchEventType
+{
+    None, TouchActivity, TouchUp    
+};
+
 class TouchActivityEventArgs : public EventArgs
 {
 public:
