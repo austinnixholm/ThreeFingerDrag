@@ -27,11 +27,11 @@ namespace Touchpad
         TouchProcessor();
 
         /**
-         * @brief Parses raw touch data received by the touch pad.
-         * @param lParam LPARAM containing the touch data.
+         * @brief Retrieves touch data from the given raw input handle.
+         * @param hRawInputHandle Handle to the raw input data.
+         * @return The retrieved touch data.
          */
-        void ParseRawTouchData(LPARAM lParam);
-
+        void ProcessRawInput(HRAWINPUT hRawInputHandle);
         void ClearContacts();
 
         TouchProcessor(const TouchProcessor& other) = delete; // Disallow copy constructor
@@ -40,20 +40,13 @@ namespace Touchpad
         TouchProcessor& operator=(TouchProcessor&& other) noexcept = delete; // Disallow move assignment
         ~TouchProcessor() = default; // Default destructor
 
-
     private:
-        /**
-         * @brief Retrieves touch data from the given raw input handle.
-         * @param hRawInputHandle Handle to the raw input data.
-         * @return The retrieved touch data.
-         */
-        void InterpretRawInput(HRAWINPUT hRawInputHandle);
         void UpdateTouchContactsState(const std::vector<TouchContact>& received_contacts);
         void RaiseEventsIfNeeded();
         void LogEventDetails(bool touch_up_event, const std::chrono::high_resolution_clock::time_point& time) const;
+        
         static bool ValueWithinRange(int value, int minimum, int maximum);
         static std::string DebugPoints(const std::vector<TouchContact>& data);
-        
         static int CountTouchPointsMakingContact(const std::vector<TouchContact>& points);
 
         EventListeners::TouchActivityListener activity_listener_;

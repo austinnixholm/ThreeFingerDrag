@@ -161,9 +161,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
         taskbar_restarted = RegisterWindowMessage(TEXT("TaskbarCreated"));
         break;
+        
     // Raw touch device input
     case WM_INPUT:
-        touch_processor.ParseRawTouchData(lParam);
+        touch_processor.ProcessRawInput((HRAWINPUT)lParam);
         break;
 
     // Notify Icon

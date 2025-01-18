@@ -19,11 +19,6 @@ namespace Touchpad
             std::placeholders::_1));
     }
 
-    void TouchProcessor::ParseRawTouchData(const LPARAM lParam)
-    {
-        auto a = std::async(std::launch::async, [&] { InterpretRawInput((HRAWINPUT)lParam); });
-    }
-
     void TouchProcessor::ClearContacts()
     {
         parsed_contacts_.clear();
@@ -34,7 +29,7 @@ namespace Touchpad
      * \param hRawInputHandle Handle to the raw input.
      * \return A struct containing the touchpad input data.
      */
-    void TouchProcessor::InterpretRawInput(const HRAWINPUT hRawInputHandle)
+    void TouchProcessor::ProcessRawInput(const HRAWINPUT hRawInputHandle)
     {
         const bool log_debug = config->LogDebug();
 
