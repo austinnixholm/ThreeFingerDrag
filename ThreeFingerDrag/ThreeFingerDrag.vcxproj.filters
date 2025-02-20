@@ -30,9 +30,6 @@
     <ClInclude Include="logging\logger.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="gesture\touch_gestures.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="notification\popups.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -57,13 +54,19 @@
     <ClInclude Include="data\touch_data.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="gesture\touch_listeners.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="mouse\cursor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="task\task_scheduler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="gesture\touch_processor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="gesture\event_listeners.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mathutil.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -72,9 +75,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="logging\logger.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="gesture\touch_gestures.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="notification\popups.cpp">
@@ -87,6 +87,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="mouse\cursor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="gesture\touch_processor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

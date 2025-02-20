@@ -10,4 +10,5 @@
 #include "application.h"
 #include "notification/wintoastlib.h"
 #include "notification/popups.h"
+#include "mathutil.h"
 #include <CommCtrl.h>

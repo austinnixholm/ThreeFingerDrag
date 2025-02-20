@@ -5,6 +5,7 @@
 #include "../logging/logger.h"
 #include <array>
 #include <numeric>
+#include <deque>  // For maintaining history
 
 namespace EventListeners
 {
@@ -15,6 +16,12 @@ namespace EventListeners
     constexpr auto GESTURE_START_THRESHOLD_MS = 50;
 
     inline GlobalConfig* config = GlobalConfig::GetInstance();
+
+    struct FingerHistory {
+        std::deque<std::pair<double, double>> deltas;  // Stores (dx, dy)
+        std::deque<std::chrono::time_point<std::chrono::steady_clock>> timestamps;
+    };
+
 
     static void CancelGesture()
     {
@@ -43,6 +50,8 @@ namespace EventListeners
             const bool is_dragging = Cursor::IsLeftMouseDown();
             const bool is_initial_gesture = !is_dragging && args.data->can_perform_gesture;
             const auto current_time = args.time;
+            const int last_contact_count = config->GetLastContactCount();
+            const auto contact_count = args.data->contact_count;
 
             // If it's the initial gesture, set the gesture start time
             if (is_initial_gesture && !config->IsGestureStarted())
@@ -51,6 +60,10 @@ namespace EventListeners
                 gesture_start_ = current_time;
                 if (config->LogDebug())
                     DEBUG("Started gesture.");
+            }
+
+            if (config->IsInertiaActive() && contact_count > last_contact_count) {
+                config->StopInertia();
             }
 
             // If there's no previous data, return
@@ -95,6 +108,20 @@ namespace EventListeners
                 if (contact.contact_id != previous_contact.contact_id)
                     continue;
 
+                // Calculate delta for this frame
+                double dx = contact.x - previous_contact.x;
+                double dy = contact.y - previous_contact.y;
+
+                // Store the last 3-5 frames of history (adjust as needed)
+                finger_history_[contact.contact_id].deltas.push_back({ dx, dy });
+                finger_history_[contact.contact_id].timestamps.push_back(current_time);
+
+                // Trim old entries (e.g., keep last 5 frames)
+                if (finger_history_[contact.contact_id].deltas.size() > 5) {
+                    finger_history_[contact.contact_id].deltas.pop_front();
+                    finger_history_[contact.contact_id].timestamps.pop_front();
+                }
+
                 // Ignore initial movement of contact point if inactivity, to prevent jitter
                 const float ms_since_movement = CalculateElapsedTimeMs(movement_times_[i], current_time);
                 movement_times_[i] = current_time;
@@ -128,7 +155,6 @@ namespace EventListeners
                 valid_touches++;
             }
 
-            const auto contact_count = args.data->contact_count;
 
             // Switched to one finger during gesture
             if (contact_count == 1 && config->GetLastContactCount() == 1)
@@ -144,8 +170,8 @@ namespace EventListeners
                     return;
                 }
             }
-            
-            if (config->IsGestureStarted() && config->GetLastContactCount() > 1 && contact_count == 1)
+
+            if (config->IsGestureStarted() && last_contact_count > 1 && contact_count == 1)
                 config->SetLastOneFingerSwitchTime(current_time);
             
             config->SetLastContactCount(contact_count);
@@ -162,10 +188,99 @@ namespace EventListeners
             const double delta_y =
                 std::accumulate(accumulated_delta_y_.begin(), accumulated_delta_y_.end(), 0.0) * gesture_speed;
 
+            bool inertia_started = false;
+
+            if (last_contact_count == 3 && contact_count == 2) {
+                // Step 1: Identify the released finger
+                int released_id = -1;
+
+                // Compare previous and current contacts to find the missing finger
+                for (const auto& prev_contact : args.previous_data) {
+                    bool exists = false;
+                    for (const auto& curr_contact : args.data->contacts) {
+                        if (prev_contact.contact_id == curr_contact.contact_id) {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists) {
+                        released_id = prev_contact.contact_id;
+                        break;
+                    }
+                }
+
+                // Step 2: If the released finger is found and has movement history
+                if (released_id != -1 && finger_history_.count(released_id)) {
+                    const auto& history = finger_history_[released_id];
+
+                    // Step 3: Calculate total delta over the history window
+                    //double total_dx = 0.0, total_dy = 0.0;
+                   // for (const auto& [dx, dy] : history.deltas) {
+                   //     total_dx += dx;
+                   //     total_dy += dy;
+                   // }
+
+                    // Step 4: Calculate time span of the history (in seconds)
+                    // Calculate time span in seconds with maximal precision
+                    const auto duration = history.timestamps.back() - history.timestamps.front();
+                    const double time_span = std::chrono::duration<double>(duration).count(); // Precision to nanoseconds
+
+                    double total_dx = 0.0, total_dy = 0.0;
+                    double total_weight = 0.0;
+                    const auto now = std::chrono::steady_clock::now();
+
+                    for (size_t i = 0; i < history.deltas.size(); i++) {
+                        const auto age = std::chrono::duration<double>(now - history.timestamps[i]).count();
+                        const double weight = std::exp(-age * 15.0); // Strong decay for older frames
+                        total_dx += history.deltas[i].first * weight;
+                        total_dy += history.deltas[i].second * weight;
+                        total_weight += weight;
+                    }
+
+                    if (total_weight > 0 && time_span > 0) {
+                        double velocity_x = (total_dx / total_weight) / time_span;
+                        double velocity_y = (total_dy / total_weight) / time_span;
+
+                        // Step 6: Amplify for flick effect (adjust factor as needed)
+                        const double amplification = 0.030;
+                        const double initial_vx = velocity_x * amplification;
+                        const double initial_vy = velocity_y * amplification;
+                        config->StartInertia(
+                            initial_vx,
+                            initial_vy
+                        );
+                        Cursor::MoveCursor(initial_vx, initial_vy);
+                        inertia_started = true;
+                    }
+
+               /*     // Step 5: Avoid division by zero and compute velocity
+                    if (time_span > 0) {
+                        // Compute velocity (delta/time)
+                        double velocity_x = total_dx / time_span;
+                        double velocity_y = total_dy / time_span;
+
+                        // Step 6: Amplify for flick effect (adjust factor as needed)
+                        const double amplification = 0.005;
+                        const double initial_vx = velocity_x * amplification;
+                        const double initial_vy = velocity_y * amplification;
+                        config->StartInertia(
+                            initial_vx,
+                            initial_vy
+                        );      
+                        Cursor::MoveCursor(initial_vx, initial_vy);
+                        inertia_started = true;
+                    }*/
+
+                    // Step 7: Clear history for the released finger
+                    finger_history_.erase(released_id);
+                }
+            }
+
             config->SetCancellationStarted(false);
 
             // Move the mouse pointer based on the calculated vector
-            Cursor::MoveCursor(delta_x, delta_y);
+            if (!inertia_started)
+                Cursor::MoveCursor(delta_x, delta_y);
 
             // Start dragging if left mouse is not already down
             if (!is_dragging)
@@ -190,6 +305,7 @@ namespace EventListeners
         }
 
     private:
+        std::unordered_map<int, FingerHistory> finger_history_;
         std::array<double, MAX_CONTACT_SIZE> accumulated_delta_x_ = {0.0};
         std::array<double, MAX_CONTACT_SIZE> accumulated_delta_y_ = {0.0};
         std::array<std::chrono::time_point<std::chrono::steady_clock>, MAX_CONTACT_SIZE> movement_times_;
@@ -202,6 +318,10 @@ namespace EventListeners
         void OnTouchUp(const TouchUpEventArgs& args)
         {
             config->SetPreviousTouchContacts(args.data->contacts);
+
+            if (config->IsInertiaActive()) {
+                config->StopInertia();
+            }
 
             if (config->IsCancellationStarted() || !config->IsGestureStarted())
                 return;

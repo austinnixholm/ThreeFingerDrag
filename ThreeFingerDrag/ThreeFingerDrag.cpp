@@ -69,6 +69,7 @@ bool StartupRegistryKeyExists();
 bool RegisterRawInputDevices();
 bool CheckSingleInstance();
 bool InitializeGUI();
+void StartInertiaThread();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                       _In_opt_ HINSTANCE hPrevInstance,
@@ -97,6 +98,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
     StartPeriodicUpdateThreads();
+    StartInertiaThread();
     PerformAdditionalSteps();
 
     MSG msg;
@@ -483,6 +485,45 @@ void ShowSettingsWindow()
     ShowWindow(settings_hwnd, SW_SHOW);
     UpdateWindow(settings_hwnd);
 }
+
+void StartInertiaThread() {
+    std::thread([] {
+        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+        constexpr double INITIAL_FRICTION = 0.97;  // Gentle slowdown at high speeds
+        constexpr double FINAL_FRICTION = 0.89;    // Sharper slowdown at low speeds
+        constexpr double MIN_VELOCITY = 0.0005;    // Stop when velocity is negligible
+
+        while (application_running) {
+            if (config->IsInertiaActive()) {
+                double vx, vy;
+                config->GetInertiaVelocity(vx, vy);
+
+                // Calculate current speed
+                const double speed = std::hypot(vx, vy);
+
+                // Dynamic friction: gentle at high speeds, sharp at low speeds
+                const double friction = lerp(INITIAL_FRICTION, FINAL_FRICTION, 1.0 - speed / 1000.0);
+
+                // Apply friction
+                vx *= friction;
+                vy *= friction;
+
+                // Move cursor
+                Cursor::MoveCursor(vx, vy);
+
+                // Update stored velocity
+                config->StartInertia(vx, vy);
+
+                // Stop when velocity is too low
+                if (speed < MIN_VELOCITY) {
+                    config->StopInertia();
+                }
+            }
+            std::this_thread::sleep_for(std::chrono::microseconds(50)); // ~20,000 Hz updates
+        }
+        }).detach();
+}
+
 
 /**
  * \brief Starts any threads required for periodic updates throughout the application.

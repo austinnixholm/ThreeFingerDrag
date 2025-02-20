@@ -162,3 +162,26 @@ void GlobalConfig::SetAutomaticTimeoutDelayMs(int delay)
 {
     automatic_timeout_delay_ms = delay;
 }
+
+// globalconfig.cpp
+void GlobalConfig::StartInertia(double vx, double vy) {
+    inertia_active_ = true;
+    inertia_velocity_x_ = vx;
+    inertia_velocity_y_ = vy;
+    inertia_start_time_ = std::chrono::steady_clock::now();
+}
+
+void GlobalConfig::StopInertia() {
+    inertia_active_ = false;
+    inertia_velocity_x_ = 0;
+    inertia_velocity_y_ = 0;
+}
+
+bool GlobalConfig::IsInertiaActive() const {
+    return inertia_active_;
+}
+
+void GlobalConfig::GetInertiaVelocity(double& vx, double& vy) {
+    vx = inertia_velocity_x_;
+    vy = inertia_velocity_y_;
+}

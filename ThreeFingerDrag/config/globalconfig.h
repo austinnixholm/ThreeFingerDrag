@@ -33,6 +33,11 @@ private:
     std::vector<TouchContact> previous_touch_contacts_;
     static GlobalConfig* instance_;
 
+    bool inertia_active_;
+    double inertia_velocity_x_;
+    double inertia_velocity_y_;
+    std::chrono::time_point<std::chrono::steady_clock> inertia_start_time_;
+
     // Private constructor
     GlobalConfig();
 
@@ -54,6 +59,11 @@ public:
     std::chrono::time_point<std::chrono::steady_clock> GetLastEvent() const;
     std::chrono::time_point<std::chrono::steady_clock> GetLastOneFingerSwitchTime() const;
     std::vector<TouchContact> GetPreviousTouchContacts() const;
+
+    bool IsInertiaActive() const;
+    void StartInertia(double vx, double vy);
+    void StopInertia();
+    void GetInertiaVelocity(double& vx, double& vy);
 
     void SetCancellationDelayMs(int delay);
     void SetAutomaticTimeoutDelayMs(int delay);
