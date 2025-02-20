@@ -190,8 +190,9 @@ namespace EventListeners
 
             bool inertia_started = false;
 
+            // Inertial momentum
             if (last_contact_count == 3 && contact_count == 2) {
-                // Step 1: Identify the released finger
+                // Identify the released finger
                 int released_id = -1;
 
                 // Compare previous and current contacts to find the missing finger
@@ -209,18 +210,10 @@ namespace EventListeners
                     }
                 }
 
-                // Step 2: If the released finger is found and has movement history
+                // If the released finger is found and has movement history
                 if (released_id != -1 && finger_history_.count(released_id)) {
                     const auto& history = finger_history_[released_id];
 
-                    // Step 3: Calculate total delta over the history window
-                    //double total_dx = 0.0, total_dy = 0.0;
-                   // for (const auto& [dx, dy] : history.deltas) {
-                   //     total_dx += dx;
-                   //     total_dy += dy;
-                   // }
-
-                    // Step 4: Calculate time span of the history (in seconds)
                     // Calculate time span in seconds with maximal precision
                     const auto duration = history.timestamps.back() - history.timestamps.front();
                     const double time_span = std::chrono::duration<double>(duration).count(); // Precision to nanoseconds
@@ -253,25 +246,7 @@ namespace EventListeners
                         inertia_started = true;
                     }
 
-               /*     // Step 5: Avoid division by zero and compute velocity
-                    if (time_span > 0) {
-                        // Compute velocity (delta/time)
-                        double velocity_x = total_dx / time_span;
-                        double velocity_y = total_dy / time_span;
-
-                        // Step 6: Amplify for flick effect (adjust factor as needed)
-                        const double amplification = 0.005;
-                        const double initial_vx = velocity_x * amplification;
-                        const double initial_vy = velocity_y * amplification;
-                        config->StartInertia(
-                            initial_vx,
-                            initial_vy
-                        );      
-                        Cursor::MoveCursor(initial_vx, initial_vy);
-                        inertia_started = true;
-                    }*/
-
-                    // Step 7: Clear history for the released finger
+                    // Clear history for the released finger
                     finger_history_.erase(released_id);
                 }
             }
