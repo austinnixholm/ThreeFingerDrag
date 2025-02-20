@@ -5,7 +5,7 @@
 #include "../logging/logger.h"
 #include <array>
 #include <numeric>
-#include <deque>  // For maintaining history
+#include <deque> 
 
 namespace EventListeners
 {
@@ -14,6 +14,10 @@ namespace EventListeners
     constexpr auto MIN_VALID_TOUCH_CONTACTS = 1;
     constexpr auto INACTIVITY_THRESHOLD_MS = 100;
     constexpr auto GESTURE_START_THRESHOLD_MS = 50;
+    // TODO: ini settings
+    constexpr double MIN_FLICK_VELOCITY = 500.0;   // pixels/second
+    constexpr double MIN_FLICK_DISTANCE = 80.0;    // pixels
+    constexpr double MAX_FLICK_TIMESPAN = 0.15;    // seconds (150ms)
 
     inline GlobalConfig* config = GlobalConfig::GetInstance();
 
@@ -112,12 +116,12 @@ namespace EventListeners
                 double dx = contact.x - previous_contact.x;
                 double dy = contact.y - previous_contact.y;
 
-                // Store the last 3-5 frames of history (adjust as needed)
+                // Store the last 3-6 frames of history (adjust as needed)
                 finger_history_[contact.contact_id].deltas.push_back({ dx, dy });
                 finger_history_[contact.contact_id].timestamps.push_back(current_time);
 
-                // Trim old entries (e.g., keep last 5 frames)
-                if (finger_history_[contact.contact_id].deltas.size() > 5) {
+                // Trim old entries (e.g., keep last 6 frames)
+                if (finger_history_[contact.contact_id].deltas.size() > 6) {
                     finger_history_[contact.contact_id].deltas.pop_front();
                     finger_history_[contact.contact_id].timestamps.pop_front();
                 }
@@ -213,37 +217,45 @@ namespace EventListeners
                 // If the released finger is found and has movement history
                 if (released_id != -1 && finger_history_.count(released_id)) {
                     const auto& history = finger_history_[released_id];
-
+                
                     // Calculate time span in seconds with maximal precision
                     const auto duration = history.timestamps.back() - history.timestamps.front();
                     const double time_span = std::chrono::duration<double>(duration).count(); // Precision to nanoseconds
-
+                
                     double total_dx = 0.0, total_dy = 0.0;
                     double total_weight = 0.0;
                     const auto now = std::chrono::steady_clock::now();
-
+                
                     for (size_t i = 0; i < history.deltas.size(); i++) {
                         const auto age = std::chrono::duration<double>(now - history.timestamps[i]).count();
-                        const double weight = std::exp(-age * 15.0); // Strong decay for older frames
+                        const double weight = std::exp(-age * 18.5); // TODO: ini setting
                         total_dx += history.deltas[i].first * weight;
                         total_dy += history.deltas[i].second * weight;
                         total_weight += weight;
                     }
-
+                
                     if (total_weight > 0 && time_span > 0) {
+                        // Calculate actual physical movement (not just velocity)
+                        const double total_distance = std::hypot(total_dx, total_dy);
+
+                        // Calculate velocity
                         double velocity_x = (total_dx / total_weight) / time_span;
                         double velocity_y = (total_dy / total_weight) / time_span;
+                        const double speed = std::hypot(velocity_x, velocity_y);
 
-                        // Step 6: Amplify for flick effect (adjust factor as needed)
-                        const double amplification = 0.030;
-                        const double initial_vx = velocity_x * amplification;
-                        const double initial_vy = velocity_y * amplification;
-                        config->StartInertia(
-                            initial_vx,
-                            initial_vy
-                        );
-                        Cursor::MoveCursor(initial_vx, initial_vy);
-                        inertia_started = true;
+                        // Only trigger inertia if all conditions met
+                        if (speed >= MIN_FLICK_VELOCITY &&
+                            total_distance >= MIN_FLICK_DISTANCE &&
+                            time_span <= MAX_FLICK_TIMESPAN) {
+
+                            const double amplification = 0.030; // TODO: ini setting
+                            const double initial_vx = velocity_x * amplification;
+                            const double initial_vy = velocity_y * amplification;
+
+                            config->StartInertia(initial_vx, initial_vy);
+                            Cursor::MoveCursor(initial_vx, initial_vy);
+                            inertia_started = true;
+                        }
                     }
 
                     // Clear history for the released finger

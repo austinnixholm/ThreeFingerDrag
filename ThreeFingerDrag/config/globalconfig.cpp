@@ -4,7 +4,6 @@ GlobalConfig* GlobalConfig::instance_ = nullptr;
 
 GlobalConfig::GlobalConfig()
 {
-    // Set default values
     gesture_speed_ = DEFAULT_ACCELERATION_FACTOR;
     cancellation_delay_ms_ = DEFAULT_CANCELLATION_DELAY_MS;
     automatic_timeout_delay_ms = DEFAULT_AUTOMATIC_TIMEOUT_DELAY_MS;
@@ -163,7 +162,6 @@ void GlobalConfig::SetAutomaticTimeoutDelayMs(int delay)
     automatic_timeout_delay_ms = delay;
 }
 
-// globalconfig.cpp
 void GlobalConfig::StartInertia(double vx, double vy) {
     inertia_active_ = true;
     inertia_velocity_x_ = vx;

@@ -489,8 +489,9 @@ void ShowSettingsWindow()
 void StartInertiaThread() {
     std::thread([] {
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-        constexpr double INITIAL_FRICTION = 0.97;  // Gentle slowdown at high speeds
-        constexpr double FINAL_FRICTION = 0.89;    // Sharper slowdown at low speeds
+        // TODO: ini settings
+        constexpr double INITIAL_FRICTION = 0.94;  // Gentle slowdown at high speeds
+        constexpr double FINAL_FRICTION = 0.88;    // Sharper slowdown at low speeds
         constexpr double MIN_VELOCITY = 0.0005;    // Stop when velocity is negligible
 
         while (application_running) {
