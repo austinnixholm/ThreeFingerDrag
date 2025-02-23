@@ -24,6 +24,7 @@ namespace
     constexpr auto ID_TEXT_BOX = 10004;
     constexpr auto ID_CANCELLATION_DELAY_SPINNER = 10005;
     constexpr auto ID_OPEN_CONFIG_FOLDER = 10005;
+    constexpr auto ID_RELOAD_SETTINGS = 10006;
 }
 
 // Global Variables
@@ -191,6 +192,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
             case ID_OPEN_CONFIG_FOLDER:
                 ShellExecuteA(NULL, "open", Application::config_folder_path.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                break;
+            case ID_RELOAD_SETTINGS:
+                Application::ReadConfiguration();
                 break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
@@ -440,8 +444,10 @@ void CreateTrayMenu(const HWND hWnd)
     const HMENU hMenu = CreatePopupMenu();
 
     // Add the menu items
-    AppendMenu(hMenu, MF_STRING, ID_SETTINGS_MENUITEM, TEXT("Settings"));
-    AppendMenu(hMenu, MF_STRING, ID_OPEN_CONFIG_FOLDER, TEXT("Open Config"));
+    AppendMenu(hMenu, MF_STRING, ID_SETTINGS_MENUITEM, TEXT("Open Settings"));
+    AppendMenu(hMenu, MF_STRING, ID_RELOAD_SETTINGS, TEXT("Reload Settings"));
+    AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
+    AppendMenu(hMenu, MF_STRING, ID_OPEN_CONFIG_FOLDER, TEXT("Open Config Folder"));
 
     // Add a separator and the "Exit" menu item.
     AppendMenu(hMenu, MF_SEPARATOR, 0, nullptr);
@@ -485,11 +491,10 @@ void ShowSettingsWindow()
 
 void StartInertiaThread() {
     std::thread([] {
+        constexpr int DELAY_MICROSECONDS = 500; // ~2,000 Hz updates
+        constexpr double MIN_VELOCITY = 0.0005;
+
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-        // TODO: ini settings
-        constexpr double INITIAL_FRICTION = 0.94;  // Gentle slowdown at high speeds
-        constexpr double FINAL_FRICTION = 0.86;    // Sharper slowdown at low speeds
-        constexpr double MIN_VELOCITY = 0.0005;    // Stop when velocity is negligible
 
         while (application_running) {
             if (config->IsInertiaActive()) {
@@ -500,7 +505,7 @@ void StartInertiaThread() {
                 const double speed = std::hypot(vx, vy);
 
                 // Dynamic friction: gentle at high speeds, sharp at low speeds
-                const double friction = lerp(INITIAL_FRICTION, FINAL_FRICTION, 1.0 - speed / 1000.0);
+                const double friction = lerp(config->GetInertiaFrictionPercentageStart(), config->GetInertiaFrictionPercentageEnd(), 1.0 - speed / 1000.0);
 
                 // Apply friction
                 vx *= friction;
@@ -517,7 +522,7 @@ void StartInertiaThread() {
                     config->StopInertia();
                 }
             }
-            std::this_thread::sleep_for(std::chrono::microseconds(500)); // ~2,000 Hz updates
+            std::this_thread::sleep_for(std::chrono::microseconds(DELAY_MICROSECONDS)); 
         }
         }).detach();
 }

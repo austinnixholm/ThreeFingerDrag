@@ -14,10 +14,6 @@ namespace EventListeners
     constexpr auto MIN_VALID_TOUCH_CONTACTS = 1;
     constexpr auto INACTIVITY_THRESHOLD_MS = 100;
     constexpr auto GESTURE_START_THRESHOLD_MS = 50;
-    // TODO: ini settings
-    constexpr double MIN_FLICK_VELOCITY = 300.0;   // pixels/second
-    constexpr double MIN_FLICK_DISTANCE = 50.0;    // pixels
-    constexpr double MAX_FLICK_TIMESPAN = 0.2;    // seconds (150ms)
 
     inline GlobalConfig* config = GlobalConfig::GetInstance();
 
@@ -242,15 +238,15 @@ namespace EventListeners
                         double velocity_y = (total_dy / total_weight) / time_span;
                         const double speed = std::hypot(velocity_x, velocity_y);
 
-                        bool speed_condition_met = speed >= MIN_FLICK_VELOCITY;
-                        bool distance_condition_met = total_distance >= MIN_FLICK_DISTANCE;
-                        bool time_span_condition_met = time_span <= MAX_FLICK_TIMESPAN;
+                        bool speed_condition_met = speed >= config->GetMinimumFlickVelocity();
+                        bool distance_condition_met = total_distance >= config->GetMinimumFlickDistancePx();
+                        bool time_span_condition_met = time_span <= config->GetMinimumFlickTimespanSeconds();
 
                         bool conditions_met = speed_condition_met && distance_condition_met && time_span_condition_met;
 
                         // Only trigger inertia if all conditions met
                         if (conditions_met) {
-                            const double amplification = 0.030; // TODO: ini setting
+                            const double amplification = config->GetInertiaSpeedMultiplier() / 1000.0; 
                             const double initial_vx = velocity_x * amplification;
                             const double initial_vy = velocity_y * amplification;
 
