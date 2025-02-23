@@ -111,10 +111,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     // Delete tray icon
     Shell_NotifyIcon(NIM_DELETE, &tray_icon_data);
 
-    // Join threads
     application_running = false;
-    if (touch_activity_thread.joinable())
-        touch_activity_thread.join();
     return static_cast<int>(msg.wParam);
 }
 
@@ -491,7 +488,7 @@ void StartInertiaThread() {
         SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
         // TODO: ini settings
         constexpr double INITIAL_FRICTION = 0.94;  // Gentle slowdown at high speeds
-        constexpr double FINAL_FRICTION = 0.88;    // Sharper slowdown at low speeds
+        constexpr double FINAL_FRICTION = 0.86;    // Sharper slowdown at low speeds
         constexpr double MIN_VELOCITY = 0.0005;    // Stop when velocity is negligible
 
         while (application_running) {
@@ -520,7 +517,7 @@ void StartInertiaThread() {
                     config->StopInertia();
                 }
             }
-            std::this_thread::sleep_for(std::chrono::microseconds(50)); // ~20,000 Hz updates
+            std::this_thread::sleep_for(std::chrono::microseconds(500)); // ~2,000 Hz updates
         }
         }).detach();
 }
@@ -532,12 +529,12 @@ void StartInertiaThread() {
 void StartPeriodicUpdateThreads()
 {
     // Check if the dragging action needs to be completed
-    touch_activity_thread = std::thread([&]
-    {
+
+    std::thread([] {
         while (application_running)
         {
             std::this_thread::sleep_for(TOUCH_ACTIVITY_PERIOD_MS);
-
+        
             if (Cursor::IsLeftMouseDown() && config->IsGestureStarted())
             {
                 const auto interval = EventListeners::CalculateElapsedTimeMs(
@@ -550,11 +547,11 @@ void StartPeriodicUpdateThreads()
                         DEBUG("Cancelled gesture (automatic timeout).");
                 }
             }
-
+        
             // Only continue if a cancellation was initiated, or if the gesture is ongoing
             if (!config->IsCancellationStarted() && !config->IsGestureStarted())
                 continue;
-            
+        
             if (config->IsCancellationStarted()) // Check for cancellation timeout started by user
             {
                 const auto now = std::chrono::high_resolution_clock::now();
@@ -564,7 +561,7 @@ void StartPeriodicUpdateThreads()
                 {
                     continue;
                 }
-
+        
                 EventListeners::CancelGesture();
                 touch_processor.ClearContacts();
                 if (config->LogDebug())
@@ -583,7 +580,7 @@ void StartPeriodicUpdateThreads()
                 }
             }
         }
-    });
+    }).detach();
 }
 
 /**

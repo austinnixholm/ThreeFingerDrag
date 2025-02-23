@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "../config/globalconfig.h"
 #include "../event/touch_events.h"
 #include "../mouse/cursor.h"
@@ -15,9 +15,9 @@ namespace EventListeners
     constexpr auto INACTIVITY_THRESHOLD_MS = 100;
     constexpr auto GESTURE_START_THRESHOLD_MS = 50;
     // TODO: ini settings
-    constexpr double MIN_FLICK_VELOCITY = 500.0;   // pixels/second
-    constexpr double MIN_FLICK_DISTANCE = 80.0;    // pixels
-    constexpr double MAX_FLICK_TIMESPAN = 0.15;    // seconds (150ms)
+    constexpr double MIN_FLICK_VELOCITY = 300.0;   // pixels/second
+    constexpr double MIN_FLICK_DISTANCE = 50.0;    // pixels
+    constexpr double MAX_FLICK_TIMESPAN = 0.2;    // seconds (150ms)
 
     inline GlobalConfig* config = GlobalConfig::GetInstance();
 
@@ -62,6 +62,7 @@ namespace EventListeners
             {
                 config->SetGestureStarted(true);
                 gesture_start_ = current_time;
+                finger_history_.clear();
                 if (config->LogDebug())
                     DEBUG("Started gesture.");
             }
@@ -116,11 +117,9 @@ namespace EventListeners
                 double dx = contact.x - previous_contact.x;
                 double dy = contact.y - previous_contact.y;
 
-                // Store the last 3-6 frames of history (adjust as needed)
                 finger_history_[contact.contact_id].deltas.push_back({ dx, dy });
                 finger_history_[contact.contact_id].timestamps.push_back(current_time);
 
-                // Trim old entries (e.g., keep last 6 frames)
                 if (finger_history_[contact.contact_id].deltas.size() > 6) {
                     finger_history_[contact.contact_id].deltas.pop_front();
                     finger_history_[contact.contact_id].timestamps.pop_front();
@@ -243,11 +242,14 @@ namespace EventListeners
                         double velocity_y = (total_dy / total_weight) / time_span;
                         const double speed = std::hypot(velocity_x, velocity_y);
 
-                        // Only trigger inertia if all conditions met
-                        if (speed >= MIN_FLICK_VELOCITY &&
-                            total_distance >= MIN_FLICK_DISTANCE &&
-                            time_span <= MAX_FLICK_TIMESPAN) {
+                        bool speed_condition_met = speed >= MIN_FLICK_VELOCITY;
+                        bool distance_condition_met = total_distance >= MIN_FLICK_DISTANCE;
+                        bool time_span_condition_met = time_span <= MAX_FLICK_TIMESPAN;
 
+                        bool conditions_met = speed_condition_met && distance_condition_met && time_span_condition_met;
+
+                        // Only trigger inertia if all conditions met
+                        if (conditions_met) {
                             const double amplification = 0.030; // TODO: ini setting
                             const double initial_vx = velocity_x * amplification;
                             const double initial_vy = velocity_y * amplification;
@@ -256,10 +258,29 @@ namespace EventListeners
                             Cursor::MoveCursor(initial_vx, initial_vy);
                             inertia_started = true;
                         }
+                        if (!conditions_met) {
+                            OutputDebugString(L"==== Inertial Momentum Conditions Not Met ====\n");
+                        }
+                        if (!speed_condition_met) {
+                            OutputDebugString(L"Speed condition not met.\n");
+                        }
+                        if (!distance_condition_met) {
+                            OutputDebugString(L"Distance condition not met.\n");
+                        }
+                        if (!time_span_condition_met) {
+                            OutputDebugString(L"Time Span condition not met.\n");
+                        }
                     }
+                    
 
                     // Clear history for the released finger
                     finger_history_.erase(released_id);
+                }
+                else if (released_id == -1) {
+                    OutputDebugString(L"no released id\n");
+                }
+                else {
+                    OutputDebugString(L"hi\n");
                 }
             }
 
