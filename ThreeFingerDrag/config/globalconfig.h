@@ -11,12 +11,12 @@ constexpr auto DEFAULT_MOUSE_CURSOR_SPEED = 0.5;
 constexpr auto DEFAULT_CANCELLATION_DELAY_MS = 500;
 constexpr auto DEFAULT_ONE_FINGER_TRANSITION_DELAY_MS = 100;
 constexpr auto DEFAULT_AUTOMATIC_TIMEOUT_DELAY_MS = 33;
+constexpr auto DEFAULT_INERTIA_SPEED_MULTIPLIER = 35;             // range (1 -> 100)
+constexpr auto DEFAULT_MIN_FLICK_VELOCITY = 75.0;               // pixels/second
+constexpr auto DEFAULT_MIN_FLICK_DISTANCE = 10.0;               // pixels
+constexpr auto DEFAULT_MAX_FLICK_TIMESPAN = 0.1;                // seconds (200ms)
 constexpr auto DEFAULT_INERTIA_FRICTION_START = 0.94;           // percentage
 constexpr auto DEFAULT_INERTIA_FRICTION_END = 0.86;             // percentage
-constexpr auto DEFAULT_MIN_FLICK_VELOCITY = 300.0;              // pixels/second
-constexpr auto DEFAULT_MIN_FLICK_DISTANCE = 50.0;               // pixels
-constexpr auto DEFAULT_MAX_FLICK_TIMESPAN = 0.2;                // seconds (200ms)
-constexpr auto DEFAULT_INERTIA_SPEED_MULTIPLIER = 30;           // range (1 -> 100)
 
 class GlobalConfig
 {
